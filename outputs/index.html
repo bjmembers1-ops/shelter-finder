@@ -1,0 +1,3032 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shelter Finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #24313b;
+      --muted: #687480;
+      --line: #eaded9;
+      --soft: #fff7f2;
+      --panel: #ffffff;
+      --accent: #257b6c;
+      --accent-dark: #174f47;
+      --sweet: #e66f5e;
+      --sweet-soft: #ffe7df;
+      --sun: #ffd166;
+      --warning: #d06249;
+      --good: #3d8b57;
+      --sky: #b8dff1;
+      --lilac: #d8c8f6;
+      --shadow: 0 26px 76px rgba(55, 44, 39, 0.18);
+      --shadow-soft: 0 14px 36px rgba(55, 44, 39, 0.11);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at calc(var(--pointer-x, 50) * 1%) calc(var(--pointer-y, 50) * 1%), rgba(255, 255, 255, 0.88) 0 4%, transparent 18%),
+        radial-gradient(circle at 14% 18%, rgba(255, 209, 102, 0.34), transparent 26%),
+        radial-gradient(circle at 88% 10%, rgba(184, 223, 241, 0.46), transparent 24%),
+        linear-gradient(135deg, #fff9f1 0%, #eefaf6 36%, #ffe6dc 72%, #f7f1ff 100%);
+      color: var(--ink);
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 48% 52% 45% 55% / 54% 42% 58% 46%;
+      filter: blur(10px) saturate(1.18);
+      mix-blend-mode: multiply;
+      will-change: transform, border-radius;
+    }
+
+    body::before {
+      width: 56vw;
+      height: 56vw;
+      min-width: 440px;
+      min-height: 440px;
+      left: -12vw;
+      top: -14vh;
+      opacity: 0.55;
+      background:
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.8), transparent 20%),
+        radial-gradient(circle at 68% 72%, rgba(255, 209, 102, 0.34), transparent 28%),
+        linear-gradient(135deg, rgba(232, 120, 103, 0.48), rgba(46, 128, 111, 0.4));
+      transform: translate(
+        calc((var(--pointer-x, 50) - 50) * 0.28px),
+        calc((var(--pointer-y, 50) - 50) * 0.22px)
+      );
+      animation: gelMorph 16s ease-in-out infinite;
+    }
+
+    body::after {
+      width: 62vw;
+      height: 46vw;
+      min-width: 520px;
+      min-height: 360px;
+      right: -16vw;
+      bottom: -18vh;
+      opacity: 0.48;
+      background:
+        radial-gradient(circle at 68% 30%, rgba(255, 255, 255, 0.72), transparent 18%),
+        radial-gradient(circle at 28% 74%, rgba(255, 231, 223, 0.78), transparent 34%),
+        linear-gradient(135deg, rgba(46, 128, 111, 0.44), rgba(232, 120, 103, 0.46));
+      transform: translate(
+        calc((var(--pointer-x, 50) - 50) * -0.34px),
+        calc((var(--pointer-y, 50) - 50) * -0.26px)
+      );
+      animation: gelMorph 19s ease-in-out infinite reverse;
+    }
+
+    .gel-interaction {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      background:
+        radial-gradient(
+          circle at calc(var(--pointer-x, 50) * 1%) calc(var(--pointer-y, 50) * 1%),
+          rgba(255, 255, 255, 0.82) 0 3%,
+          rgba(255, 209, 102, 0.2) 7%,
+          rgba(232, 120, 103, 0.12) 14%,
+          transparent 24%
+        ),
+        radial-gradient(circle at 20% 80%, rgba(46, 128, 111, 0.13), transparent 25%),
+        radial-gradient(circle at 82% 18%, rgba(255, 209, 102, 0.18), transparent 22%);
+      mix-blend-mode: soft-light;
+      opacity: 0.95;
+      transition: background-position 120ms ease-out;
+    }
+
+    .gel-interaction::before,
+    .gel-interaction::after {
+      content: "";
+      position: absolute;
+      left: calc(var(--pointer-x, 50) * 1%);
+      top: calc(var(--pointer-y, 50) * 1%);
+      width: 210px;
+      height: 150px;
+      border-radius: 48% 52% 44% 56% / 54% 43% 57% 46%;
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: inset 0 0 28px rgba(255, 255, 255, 0.42), 0 20px 60px rgba(46, 128, 111, 0.18);
+      transform: translate(-50%, -50%) rotate(calc((var(--pointer-x, 50) - 50) * 0.4deg));
+      opacity: 0.75;
+      animation: gelPulse 4s ease-in-out infinite;
+    }
+
+    .gel-interaction::after {
+      width: 340px;
+      height: 220px;
+      opacity: 0.28;
+      animation-delay: 1.6s;
+    }
+
+    .click-ripple {
+      position: absolute;
+      left: calc(var(--ripple-x) * 1%);
+      top: calc(var(--ripple-y) * 1%);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.42);
+      box-shadow: 0 0 0 1px rgba(232, 120, 103, 0.16), 0 14px 40px rgba(46, 128, 111, 0.18);
+      transform: translate(-50%, -50%);
+      animation: gelPop 1.25s ease-out forwards;
+    }
+
+    @keyframes gelMorph {
+      0% {
+        border-radius: 48% 52% 45% 55% / 54% 42% 58% 46%;
+      }
+
+      33% {
+        border-radius: 60% 40% 54% 46% / 45% 58% 42% 55%;
+      }
+
+      66% {
+        border-radius: 42% 58% 39% 61% / 62% 38% 55% 45%;
+      }
+    }
+
+    @keyframes gelPulse {
+      0%,
+      100% {
+        scale: 0.95;
+        border-radius: 48% 52% 44% 56% / 54% 43% 57% 46%;
+      }
+
+      50% {
+        scale: 1.08;
+        border-radius: 57% 43% 52% 48% / 44% 56% 47% 53%;
+      }
+    }
+
+    @keyframes gelPop {
+      0% {
+        opacity: 0.84;
+        transform: translate(-50%, -50%) scale(0.3);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(10, 6);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body::before,
+      body::after,
+      .gel-interaction::before,
+      .gel-interaction::after,
+      .click-ripple {
+        animation: none;
+      }
+
+      .gel-interaction {
+        display: none;
+      }
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 46px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      display: grid;
+      gap: 16px;
+      padding: 22px 0 28px;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .language-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 8px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(18px);
+    }
+
+    .language-control label {
+      white-space: nowrap;
+      font-size: 0.86rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.25rem, 4.6vw, 5rem);
+      line-height: 0.94;
+      letter-spacing: 0;
+      max-width: 820px;
+      color: #1f2d35;
+      text-shadow: 0 2px 0 rgba(255, 255, 255, 0.76), 0 20px 48px rgba(74, 46, 38, 0.14);
+    }
+
+    .title-lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: min(100%, 420px);
+    }
+
+    .cute-mark {
+      width: 62px;
+      height: 62px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 32% 28%, #fff 0 18%, transparent 19%),
+        linear-gradient(145deg, #fff6dd, #ffe0d7 48%, #ddf4ed);
+      border: 2px solid rgba(255, 255, 255, 0.74);
+      box-shadow: 0 14px 34px rgba(74, 46, 38, 0.16);
+      color: var(--sweet);
+      font-size: 2.05rem;
+      font-weight: 900;
+    }
+
+    .cute-mark::before {
+      content: "♥";
+    }
+
+    .subhead {
+      margin: 0;
+      max-width: 780px;
+      color: #465560;
+      font-size: 1.05rem;
+      line-height: 1.55;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-left: 6px solid var(--sun);
+      padding: 14px 17px;
+      border-radius: 10px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    body[data-mode="register"] main,
+    body[data-mode="adopt"] main {
+      grid-template-columns: minmax(0, 920px);
+      justify-content: center;
+    }
+
+    body[data-mode="register"] .list-panel,
+    body[data-mode="adopt"] .form-panel {
+      display: none;
+    }
+
+    .mode-picker {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 760px;
+      margin-top: 2px;
+    }
+
+    .mode-button {
+      display: grid;
+      gap: 5px;
+      min-height: 86px;
+      padding: 17px;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 94% 16%, rgba(255, 255, 255, 0.82), transparent 25%),
+        rgba(255, 255, 255, 0.74);
+      color: #24313b;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(18px);
+    }
+
+    .mode-button strong {
+      font-size: 1.05rem;
+      color: var(--accent-dark);
+    }
+
+    .mode-button span {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .mode-button.is-active {
+      background:
+        radial-gradient(circle at 92% 14%, rgba(255, 255, 255, 0.84), transparent 24%),
+        linear-gradient(135deg, rgba(238, 250, 246, 0.98), rgba(255, 243, 220, 0.92));
+      border-color: #cce9df;
+      box-shadow: 0 16px 34px rgba(46, 128, 111, 0.14);
+    }
+
+    .mode-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 36px rgba(74, 46, 38, 0.12);
+    }
+
+    .panel {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 250, 247, 0.78));
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+
+    .form-panel {
+      padding: 20px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .panel-title {
+      margin: 0 0 16px;
+      font-size: 1.16rem;
+      letter-spacing: 0;
+      color: #26343d;
+    }
+
+    .form-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 18px 0 10px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(234, 222, 217, 0.72);
+    }
+
+    .form-step:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .step-title {
+      margin: 0;
+      color: var(--accent-dark);
+      font-size: 0.84rem;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .step-note,
+    .required-note {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .field-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(238, 250, 246, 0.92);
+      color: var(--accent-dark);
+      border: 1px solid #cce9df;
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    label {
+      font-weight: 700;
+      color: #263243;
+      font-size: 0.93rem;
+    }
+
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"],
+    input[type="file"],
+    select {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid rgba(225, 211, 205, 0.95);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--ink);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76), 0 7px 16px rgba(74, 46, 38, 0.04);
+      transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    input[type="file"] {
+      padding: 9px;
+      cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button {
+      min-height: 30px;
+      margin-right: 10px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--sweet-soft);
+      color: #823d2e;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .photo-preview {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      align-items: center;
+      min-height: 76px;
+      padding: 9px;
+      background: linear-gradient(135deg, rgba(255, 250, 246, 0.88), rgba(239, 250, 246, 0.9));
+      border: 1px dashed rgba(232, 191, 178, 0.9);
+      border-radius: 12px;
+    }
+
+    .preview-frame,
+    .shelter-photo,
+    .photo-placeholder {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      border: 2px solid #fff;
+      box-shadow: 0 8px 16px rgba(74, 46, 38, 0.12);
+      overflow: hidden;
+      background: #fff2eb;
+    }
+
+    .preview-frame img,
+    .shelter-photo {
+      display: block;
+      object-fit: cover;
+    }
+
+    .preview-frame img {
+      width: 100%;
+      height: 100%;
+    }
+
+    .preview-empty,
+    .photo-placeholder {
+      display: grid;
+      place-items: center;
+      color: #9a665a;
+      font-weight: 850;
+      font-size: 0.78rem;
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    .photo-copy {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .animal-options,
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .animal-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 36px;
+      padding: 8px 11px;
+      border: 1px solid #efd9d1;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: #684d45;
+      cursor: pointer;
+      font-size: 0.86rem;
+      transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    .animal-options label:hover {
+      background: #fff1e9;
+      border-color: #e8bfb2;
+      transform: translateY(-1px);
+    }
+
+    .animal-options input {
+      accent-color: var(--accent);
+    }
+
+    .filter-bar {
+      align-items: end;
+      justify-content: space-between;
+      padding: 18px 20px;
+      background:
+        linear-gradient(90deg, rgba(255, 253, 251, 0.7), rgba(240, 250, 246, 0.7));
+      border-bottom: 1px solid rgba(234, 222, 217, 0.72);
+    }
+
+    .filter-field {
+      display: grid;
+      gap: 6px;
+      min-width: min(100%, 260px);
+    }
+
+    .overview-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 18px 20px 0;
+      background: transparent;
+    }
+
+    .metric {
+      display: grid;
+      gap: 3px;
+      min-height: 68px;
+      padding: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 92% 10%, rgba(255, 255, 255, 0.8), transparent 26%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(238, 250, 246, 0.86));
+      box-shadow: 0 12px 24px rgba(74, 46, 38, 0.08);
+    }
+
+    .metric strong {
+      color: #202b38;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
+    .summary-card {
+      display: grid;
+      gap: 8px;
+      margin: 18px 20px 0;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 96% 12%, rgba(255, 255, 255, 0.72), transparent 24%),
+        linear-gradient(135deg, rgba(238, 250, 246, 0.95), rgba(255, 249, 241, 0.88));
+      box-shadow: 0 12px 26px rgba(74, 46, 38, 0.08);
+    }
+
+    .summary-card h3 {
+      margin: 0;
+      color: var(--accent-dark);
+      font-size: 0.98rem;
+    }
+
+    .summary-card p {
+      margin: 0;
+      color: #465560;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .browse-panel {
+      padding: 0 20px 20px;
+      background: rgba(255, 255, 255, 0.44);
+      border-bottom: 1px solid rgba(234, 222, 217, 0.72);
+    }
+
+    .map-panel {
+      display: grid;
+      gap: 12px;
+      padding: 18px 20px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(216, 200, 246, 0.22), transparent 28%),
+        rgba(255, 255, 255, 0.52);
+      border-bottom: 1px solid rgba(234, 222, 217, 0.72);
+    }
+
+    .map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .map-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .shelter-map {
+      min-height: 340px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 4px solid rgba(255, 255, 255, 0.86);
+      box-shadow: 0 16px 36px rgba(74, 46, 38, 0.13);
+      background: #eefaf6;
+      position: relative;
+      z-index: 1;
+    }
+
+    .map-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+
+    .map-status {
+      min-height: 22px;
+      color: var(--accent-dark);
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+
+    .leaflet-container {
+      font: inherit;
+    }
+
+    .browse-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    .browse-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .browse-search {
+      display: grid;
+      gap: 6px;
+      min-width: min(100%, 280px);
+    }
+
+    .browse-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .browse-card {
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.92);
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 96% 8%, rgba(255, 209, 102, 0.18), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 250, 247, 0.9));
+      box-shadow: 0 14px 30px rgba(74, 46, 38, 0.1);
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .browse-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(232, 191, 178, 0.9);
+      box-shadow: 0 18px 36px rgba(74, 46, 38, 0.14);
+    }
+
+    .browse-top {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .browse-photo {
+      width: 76px;
+      height: 76px;
+      border-radius: 14px;
+      object-fit: cover;
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.88), transparent 24%),
+        linear-gradient(135deg, #fff2eb, #eaf8f1);
+      border: 2px solid #fff;
+      box-shadow: 0 10px 18px rgba(74, 46, 38, 0.13);
+    }
+
+    .browse-name {
+      margin: 0;
+      font-size: 1.02rem;
+      line-height: 1.2;
+      color: #202b38;
+    }
+
+    .browse-title-row {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .browse-detail {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .browse-detail strong {
+      color: #31414a;
+      font-weight: 850;
+    }
+
+    .browse-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .browse-actions a,
+    .browse-actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(238, 250, 246, 0.92);
+      color: var(--accent-dark);
+      border: 1px solid rgba(204, 233, 223, 0.95);
+      font-size: 0.82rem;
+      font-weight: 900;
+      text-decoration: none;
+      box-shadow: 0 8px 16px rgba(46, 128, 111, 0.07);
+    }
+
+    .browse-actions a:hover,
+    .browse-actions button:hover {
+      background: #dff4ec;
+      border-color: #a9dbc9;
+      transform: translateY(-1px);
+    }
+
+    .browse-actions button.is-saved {
+      background: #fff1e9;
+      color: #8b4d3f;
+      border-color: #f0d7ce;
+    }
+
+    .browse-empty {
+      padding: 18px;
+      border: 1px dashed #e9c9bf;
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+      background: #fff8f4;
+    }
+
+    .type-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 120px;
+    }
+
+    .shelter-types {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .type-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(238, 250, 246, 0.94);
+      color: var(--accent-dark);
+      border: 1px solid #cce9df;
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .language-control select {
+      width: auto;
+      min-width: 148px;
+      min-height: 38px;
+      padding: 7px 9px;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      outline: 3px solid rgba(35, 114, 102, 0.16);
+      background: #fff;
+      box-shadow: 0 0 0 1px rgba(46, 128, 111, 0.08), 0 8px 18px rgba(74, 46, 38, 0.08);
+    }
+
+    .score-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .score-intro {
+      display: grid;
+      gap: 6px;
+      margin: 18px 0 10px;
+      padding: 12px;
+      border: 1px dashed rgba(163, 211, 193, 0.94);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(239, 250, 246, 0.86), rgba(255, 249, 241, 0.74));
+    }
+
+    .score-intro-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-weight: 900;
+      color: var(--accent-dark);
+    }
+
+    .optional-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #fff1e9;
+      color: #8b4d3f;
+      border: 1px solid #f0d7ce;
+      font-size: 0.76rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .score-intro p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+
+    .score-field {
+      display: grid;
+      grid-template-columns: 1fr 92px;
+      gap: 12px;
+      align-items: center;
+      padding: 11px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 246, 241, 0.84));
+      border: 1px solid rgba(240, 222, 214, 0.96);
+      border-radius: 12px;
+      box-shadow: inset 4px 0 0 rgba(232, 120, 103, 0.22), 0 9px 19px rgba(74, 46, 38, 0.06);
+    }
+
+    .score-field label {
+      display: grid;
+      gap: 4px;
+      font-size: 0.9rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .score-field input,
+    .score-field select {
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .score-input-wrap {
+      display: grid;
+      gap: 4px;
+    }
+
+    .score-input-wrap small {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .form-status {
+      min-height: 22px;
+      margin: 0 0 12px;
+      padding: 0 2px;
+      color: var(--accent-dark);
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .form-status:empty {
+      display: none;
+    }
+
+    .total-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 0;
+      padding: 14px 15px;
+      background:
+        radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.76), transparent 30%),
+        linear-gradient(135deg, #eefaf6, #fff3dc);
+      border: 1px solid rgba(204, 233, 223, 0.94);
+      border-radius: 12px;
+      color: var(--accent-dark);
+      font-weight: 800;
+      box-shadow: 0 12px 28px rgba(46, 128, 111, 0.1);
+    }
+
+    .total-preview strong {
+      font-size: 1.5rem;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    .primary {
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.22), transparent 24%),
+        linear-gradient(135deg, var(--accent), #44a184);
+      color: white;
+      box-shadow: 0 12px 24px rgba(46, 128, 111, 0.24);
+    }
+
+    .primary:hover {
+      background: linear-gradient(135deg, var(--accent-dark), #33846d);
+      transform: translateY(-1px);
+      box-shadow: 0 16px 30px rgba(46, 128, 111, 0.28);
+    }
+
+    .secondary {
+      background: var(--sweet-soft);
+      color: #863f33;
+    }
+
+    .secondary:hover {
+      background: #ffd8cf;
+    }
+
+    .list-panel {
+      overflow: hidden;
+    }
+
+    .list-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px;
+      border-bottom: 1px solid rgba(234, 222, 217, 0.72);
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.72), transparent 28%),
+        radial-gradient(circle at 4% 10%, rgba(255, 209, 102, 0.22), transparent 24%),
+        linear-gradient(90deg, rgba(255, 246, 238, 0.86), rgba(239, 250, 246, 0.86));
+    }
+
+    .list-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .count {
+      min-width: 74px;
+      text-align: center;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255, 241, 233, 0.9);
+      color: #7c4638;
+      font-weight: 800;
+      white-space: nowrap;
+      border: 1px solid #f0d7ce;
+      box-shadow: 0 8px 18px rgba(74, 46, 38, 0.08);
+    }
+
+    .shelter-name {
+      font-weight: 850;
+      color: #202b38;
+    }
+
+    .registration-meta {
+      display: grid;
+      gap: 3px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+
+    .registration-meta a {
+      color: var(--accent-dark);
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    .registration-meta a:hover {
+      text-decoration: underline;
+    }
+
+    .low {
+      background: var(--good);
+    }
+
+    .mid {
+      background: #b6841e;
+    }
+
+    .high {
+      background: var(--warning);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 14px 20px 20px;
+      background: rgba(255, 250, 246, 0.58);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    @media (max-width: 890px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .form-panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: min(100% - 18px, 1180px);
+        padding-top: 14px;
+      }
+
+      header {
+        padding-top: 8px;
+      }
+
+      .topline,
+      .title-lockup {
+        align-items: flex-start;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+        line-height: 1;
+      }
+
+      .subhead {
+        font-size: 0.95rem;
+        padding: 12px 14px;
+      }
+
+      .panel {
+        border-radius: 12px;
+      }
+
+      .form-panel,
+      .filter-bar,
+      .map-panel,
+      .browse-panel,
+      .list-head {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .actions,
+      .score-field {
+        grid-template-columns: 1fr;
+      }
+
+      .score-field input,
+      .score-field select {
+        text-align: left;
+      }
+
+      .list-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .overview-strip {
+        grid-template-columns: 1fr;
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .summary-card {
+        margin-left: 14px;
+        margin-right: 14px;
+      }
+
+      .browse-top {
+        grid-template-columns: 64px 1fr;
+      }
+
+      .browse-photo {
+        width: 64px;
+        height: 64px;
+      }
+
+      .browse-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .browse-actions a,
+      .browse-actions button {
+        flex: 1 1 94px;
+      }
+
+      .mode-picker {
+        grid-template-columns: 1fr;
+      }
+
+      .cute-mark {
+        width: 48px;
+        height: 48px;
+        font-size: 1.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="gel-interaction" id="gel-interaction" aria-hidden="true"></div>
+  <div class="app">
+    <header>
+      <div class="topline">
+        <div class="title-lockup">
+          <span class="cute-mark" aria-hidden="true"></span>
+          <h1 data-i18n="title">Shelter Finder</h1>
+        </div>
+        <div class="language-control">
+          <label for="language" data-i18n="languageLabel">Language</label>
+          <select id="language" aria-label="Language">
+            <option value="en">English</option>
+            <option value="ko">한국어</option>
+            <option value="el">Ελληνικά</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+          </select>
+        </div>
+      </div>
+      <p class="subhead" data-i18n="subhead">Register shelters, browse animal types, check the map, and contact the right place without turning the list into a contest.</p>
+      <div class="mode-picker" aria-label="Choose what you want to do">
+        <button class="mode-button" id="register-mode" type="button" data-mode-target="register" aria-pressed="false">
+          <strong data-i18n="registerModeButton">Register a shelter</strong>
+          <span data-i18n="registerModeHint">Add shelter contact info, animals, photos, and optional scores.</span>
+        </button>
+        <button class="mode-button" id="adopt-mode" type="button" data-mode-target="adopt" aria-pressed="true">
+          <strong data-i18n="adoptModeButton">Browse shelters</strong>
+          <span data-i18n="adoptModeHint">Find dog shelters and other animal shelters, map them, and contact them.</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel form-panel" aria-labelledby="form-title">
+        <h2 class="panel-title" id="form-title" data-i18n="formTitle">Add a shelter</h2>
+        <form id="shelter-form">
+          <div class="form-step">
+            <h3 class="step-title" data-i18n="stepContact">1. Shelter basics</h3>
+            <span class="required-note" data-i18n="requiredNote">Required fields are marked</span>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="name" data-i18n="nameLabel">Shelter name</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <input id="name" name="name" type="text" autocomplete="organization" placeholder="Example: Northside Animal Care" data-i18n-placeholder="namePlaceholder" required>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="contact-name" data-i18n="contactNameLabel">Registration contact</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <input id="contact-name" name="contactName" type="text" autocomplete="name" placeholder="Example: Maya Lee" data-i18n-placeholder="contactNamePlaceholder" required>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="email" data-i18n="emailLabel">Registration email</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="contact@shelter.org" data-i18n-placeholder="emailPlaceholder" required>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="website" data-i18n="websiteLabel">Website</label>
+              <span class="field-badge" data-i18n="optionalBadge">Optional</span>
+            </div>
+            <input id="website" name="website" type="url" autocomplete="url" placeholder="https://example.org" data-i18n-placeholder="websitePlaceholder">
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="phone" data-i18n="phoneLabel">International phone number</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="Example: +1 212 555 0148" data-i18n-placeholder="phonePlaceholder" required>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="location" data-i18n="locationLabel">Location</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <input id="location" name="location" type="text" autocomplete="street-address" placeholder="City, region, country" data-i18n-placeholder="locationPlaceholder" required>
+          </div>
+
+          <div class="form-step">
+            <h3 class="step-title" data-i18n="stepAnimals">2. Animals and photo</h3>
+            <span class="step-note" data-i18n="stepAnimalsNote">Photo is optional</span>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="photo" data-i18n="photoLabel">Shelter photo</label>
+              <span class="field-badge" data-i18n="optionalBadge">Optional</span>
+            </div>
+            <input id="photo" name="photo" type="file" accept="image/*">
+            <div class="photo-preview">
+              <div class="preview-frame preview-empty" id="photo-preview">No photo</div>
+              <div class="photo-copy" data-i18n="photoHint">Upload a JPG, PNG, or other image file. Glamour shots welcome; blurry potato photos still count.</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label data-i18n="animalTypesLabel">Animal types available (choose up to 5, not the whole zoo)</label>
+              <span class="field-badge" data-i18n="optionalBadge">Optional</span>
+            </div>
+            <div class="animal-options" aria-label="Animal types available">
+              <label><input type="checkbox" name="animalTypes" value="dogs"> <span data-i18n="typeDogs">Dogs</span></label>
+              <label><input type="checkbox" name="animalTypes" value="cats"> <span data-i18n="typeCats">Cats</span></label>
+              <label><input type="checkbox" name="animalTypes" value="rabbits"> <span data-i18n="typeRabbits">Rabbits</span></label>
+              <label><input type="checkbox" name="animalTypes" value="birds"> <span data-i18n="typeBirds">Birds</span></label>
+              <label><input type="checkbox" name="animalTypes" value="other"> <span data-i18n="typeOther">Other</span></label>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="main-type" data-i18n="mainTypeLabel">Main animal type</label>
+              <span class="field-badge" data-i18n="requiredBadge">Required</span>
+            </div>
+            <select id="main-type" name="mainType" required>
+              <option value="" data-i18n="mainTypePlaceholder">Choose main type</option>
+              <option value="dogs" data-i18n="typeDogs">Dogs</option>
+              <option value="cats" data-i18n="typeCats">Cats</option>
+              <option value="rabbits" data-i18n="typeRabbits">Rabbits</option>
+              <option value="birds" data-i18n="typeBirds">Birds</option>
+              <option value="other" data-i18n="typeOther">Other</option>
+            </select>
+            <span class="hint" data-i18n="mainTypeHint">Pick the main crowd this shelter is helping most, so browsers know who is waiting.</span>
+          </div>
+
+          <div class="form-step">
+            <h3 class="step-title" data-i18n="stepScore">3. Optional priority score</h3>
+            <span class="step-note" data-i18n="stepScoreNote">0 to 25 per field</span>
+          </div>
+
+          <div class="score-intro">
+            <div class="score-intro-title">
+              <span data-i18n="optionalScoreTitle">Scoring</span>
+              <span class="optional-badge" data-i18n="optionalBadge">Optional</span>
+            </div>
+            <p data-i18n="optionalScoreHelp">Leave these blank if you do not know yet. No guessing games; unscored listings show as not scored.</p>
+          </div>
+
+          <div class="score-grid">
+            <div class="score-field">
+              <label for="animals">
+                <span data-i18n="animalsLabel">Unadopted animals</span>
+                <span class="hint" data-i18n="animalsHint">0 means the shelter has room to breathe; 25 means the waiting room is too popular.</span>
+              </label>
+              <div class="score-input-wrap">
+                <select id="animals" name="animals" data-score-select></select>
+                <small data-i18n="scoreOutOf">out of 25</small>
+              </div>
+            </div>
+
+            <div class="score-field">
+              <label for="workers">
+                <span data-i18n="workersLabel">Workers</span>
+                <span class="hint" data-i18n="workersHint">0 means staffing is strong; 25 means one person is probably doing seven jobs.</span>
+              </label>
+              <div class="score-input-wrap">
+                <select id="workers" name="workers" data-score-select></select>
+                <small data-i18n="scoreOutOf">out of 25</small>
+              </div>
+            </div>
+
+            <div class="score-field">
+              <label for="food">
+                <span data-i18n="foodLabel">Food supply</span>
+                <span class="hint" data-i18n="foodHint">0 means the pantry is ready; 25 means dinner plans need backup.</span>
+              </label>
+              <div class="score-input-wrap">
+                <select id="food" name="food" data-score-select></select>
+                <small data-i18n="scoreOutOf">out of 25</small>
+              </div>
+            </div>
+
+            <div class="score-field">
+              <label for="space">
+                <span data-i18n="spaceLabel">Shelter space</span>
+                <span class="hint" data-i18n="spaceHint">0 means enough clean, safe space; 25 means elbow room has left the chat.</span>
+              </label>
+              <div class="score-input-wrap">
+                <select id="space" name="space" data-score-select></select>
+                <small data-i18n="scoreOutOf">out of 25</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="total-preview" aria-live="polite">
+            <span data-i18n="currentScore">Current score</span>
+            <strong><span id="live-score">Not scored</span></strong>
+          </div>
+
+          <p class="form-status" id="form-status" aria-live="polite"></p>
+
+          <div class="actions">
+            <button class="primary" type="submit" data-i18n="addButton">Add shelter</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel list-panel" aria-labelledby="browse-panel-title">
+        <div class="list-head">
+          <div>
+            <h2 class="panel-title" id="browse-panel-title" data-i18n="directoryTitle">Browse shelters</h2>
+            <p data-i18n="directoryHelp">Use the animal filter to find dog shelters, cat shelters, or mixed animal shelters.</p>
+          </div>
+          <div class="count" id="shelter-count">0 shelters</div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-field">
+            <label for="animal-filter" data-i18n="filterLabel">Filter by animal wanted</label>
+            <select id="animal-filter">
+              <option value="all" data-i18n="filterAll">All animals</option>
+              <option value="dogs" data-i18n="typeDogs">Dogs</option>
+              <option value="cats" data-i18n="typeCats">Cats</option>
+              <option value="rabbits" data-i18n="typeRabbits">Rabbits</option>
+              <option value="birds" data-i18n="typeBirds">Birds</option>
+              <option value="other" data-i18n="typeOther">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="summary-card" aria-live="polite">
+          <h3 data-i18n="summaryTitle">Quick summary</h3>
+          <p id="summary-text">Showing dog-friendly shelters with map links and contact buttons.</p>
+        </div>
+
+        <div class="map-panel" aria-labelledby="map-title">
+          <div class="map-head">
+            <div>
+              <h2 class="panel-title" id="map-title" data-i18n="mapTitle">Shelter map</h2>
+              <p data-i18n="mapHelp">Zoom close to see streets and building outlines where map data is available.</p>
+            </div>
+            <div class="map-status" id="map-status" data-i18n="mapLoading">Loading building map...</div>
+          </div>
+          <div class="shelter-map" id="shelter-map" role="application" aria-label="Shelter map with building detail"></div>
+          <p class="map-note" data-i18n="mapNote">Markers use approximate shelter locations. Use the website or phone number to confirm before visiting.</p>
+        </div>
+
+        <div class="browse-panel" aria-labelledby="browse-title">
+          <div class="overview-strip" aria-label="Shelter overview">
+            <div class="metric">
+              <strong id="metric-total">0</strong>
+              <span data-i18n="metricTotal">Shelters shown</span>
+            </div>
+            <div class="metric">
+              <strong id="metric-urgent">0</strong>
+              <span data-i18n="metricUrgent">Dog shelters</span>
+            </div>
+            <div class="metric">
+              <strong id="metric-average">0</strong>
+              <span data-i18n="metricAverage">Mapped shelters</span>
+            </div>
+          </div>
+          <div class="browse-head">
+            <div>
+              <h2 class="panel-title" id="browse-title" data-i18n="browseTitle">Browse shelters</h2>
+              <p data-i18n="browseHelp">Search by name, city, animal type, or contact. The list behaves better than most inboxes.</p>
+            </div>
+            <div class="browse-search">
+              <label for="browse-search" data-i18n="browseSearchLabel">Search</label>
+              <input id="browse-search" type="search" placeholder="Search shelters or cities" data-i18n-placeholder="browseSearchPlaceholder">
+            </div>
+          </div>
+          <div class="browse-grid" id="browse-list"></div>
+          <div class="browse-empty" id="browse-empty" hidden data-i18n="browseEmpty">No shelters match those filters. The filters are being very picky today.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const gelInteraction = document.querySelector("#gel-interaction");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function setPointerPosition(event) {
+      const x = (event.clientX / window.innerWidth) * 100;
+      const y = (event.clientY / window.innerHeight) * 100;
+      document.documentElement.style.setProperty("--pointer-x", x.toFixed(2));
+      document.documentElement.style.setProperty("--pointer-y", y.toFixed(2));
+    }
+
+    function addClickRipple(event) {
+      if (reducedMotion || !gelInteraction) return;
+      const ripple = document.createElement("span");
+      ripple.className = "click-ripple";
+      ripple.style.setProperty("--ripple-x", ((event.clientX / window.innerWidth) * 100).toFixed(2));
+      ripple.style.setProperty("--ripple-y", ((event.clientY / window.innerHeight) * 100).toFixed(2));
+      gelInteraction.appendChild(ripple);
+      ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+    }
+
+    if (!reducedMotion) {
+      window.addEventListener("pointermove", setPointerPosition, { passive: true });
+      window.addEventListener("pointerdown", addClickRipple, { passive: true });
+    }
+
+    const form = document.querySelector("#shelter-form");
+    const modeButtons = document.querySelectorAll("[data-mode-target]");
+    const liveScore = document.querySelector("#live-score");
+    const count = document.querySelector("#shelter-count");
+    const browseList = document.querySelector("#browse-list");
+    const browseEmpty = document.querySelector("#browse-empty");
+    const browseSearch = document.querySelector("#browse-search");
+    const summaryText = document.querySelector("#summary-text");
+    const language = document.querySelector("#language");
+    const photoInput = document.querySelector("#photo");
+    const photoPreview = document.querySelector("#photo-preview");
+    const animalFilter = document.querySelector("#animal-filter");
+    const formStatus = document.querySelector("#form-status");
+    const mapStatus = document.querySelector("#map-status");
+    const shelterMapElement = document.querySelector("#shelter-map");
+    const metricTotal = document.querySelector("#metric-total");
+    const metricUrgent = document.querySelector("#metric-urgent");
+    const metricAverage = document.querySelector("#metric-average");
+    const scoreFields = ["animals", "workers", "food", "space"];
+    const animalTypeValues = ["dogs", "cats", "rabbits", "birds", "other"];
+    let selectedPhoto = "";
+    let shelterMap = null;
+    let shelterMarkers = [];
+    let shelterMarkerById = new Map();
+    let currentMode = "adopt";
+    const translations = {
+      en: {
+        title: "Shelter Finder",
+        languageLabel: "Language",
+        subhead: "Register shelters, browse animal types, check the map, and contact the right place without turning the list into a contest.",
+        registerModeButton: "Register a shelter",
+        registerModeHint: "Add shelter contact info, animals, photos, and optional scores.",
+        adoptModeButton: "Browse shelters",
+        adoptModeHint: "Find dog shelters and other animal shelters, map them, and contact them.",
+        formTitle: "Register a shelter",
+        stepContact: "1. Shelter basics",
+        requiredNote: "Required fields are marked",
+        requiredBadge: "Required",
+        stepAnimals: "2. Animals and photo",
+        stepAnimalsNote: "Photo is optional",
+        stepScore: "3. Optional priority score",
+        stepScoreNote: "0 to 25 per field",
+        scoreOutOf: "out of 25",
+        scoreNoSelection: "No score",
+        nameLabel: "Shelter name",
+        namePlaceholder: "Example: Northside Animal Care",
+        contactNameLabel: "Registration contact",
+        contactNamePlaceholder: "Example: Maya Lee",
+        emailLabel: "Registration email",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "Website",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "International phone number",
+        phonePlaceholder: "Example: +1 212 555 0148",
+        locationLabel: "Location",
+        locationPlaceholder: "City, region, country",
+        photoLabel: "Shelter photo",
+        photoHint: "Upload a JPG, PNG, or other image file. Glamour shots welcome; blurry potato photos still count.",
+        animalTypesLabel: "Animal types available (choose up to 5, not the whole zoo)",
+        mainTypeLabel: "Main animal type",
+        mainTypePlaceholder: "Choose main type",
+        mainTypeHint: "Pick the main crowd this shelter is helping most, so browsers know who is waiting.",
+        filterLabel: "Filter by animal wanted",
+        filterAll: "All animals",
+        metricTotal: "Shelters shown",
+        metricUrgent: "Dog shelters",
+        metricAverage: "Mapped shelters",
+        summaryTitle: "Quick summary",
+        summaryShowing: "Showing",
+        summaryShelters: "shelters",
+        summaryDogFriendly: "dog-friendly",
+        summaryMapped: "on the map",
+        summarySaved: "saved",
+        mapTitle: "Shelter map",
+        mapHelp: "Zoom close to see streets and building outlines where map data is available.",
+        mapLoading: "Loading building map...",
+        mapReady: "Building-detail map ready",
+        mapUnavailable: "Map needs internet to load.",
+        mapNote: "Markers use approximate shelter locations. Use the website or phone number to confirm before visiting.",
+        mapButton: "Map",
+        zoomMapButton: "Zoom in",
+        saveButton: "Save",
+        savedButton: "Saved",
+        addedMessage: "Shelter registered. The browse list has officially gained a new roommate.",
+        optionalScoreTitle: "Scoring",
+        optionalBadge: "Optional",
+        optionalScoreHelp: "Leave these blank if you do not know yet. No guessing games; unscored listings show as not scored.",
+        notScored: "Not scored",
+        cardMainType: "Main",
+        cardContact: "Contact",
+        browseTitle: "Browse shelters",
+        browseHelp: "Search by name, city, animal type, or contact. The list behaves better than most inboxes.",
+        browseSearchLabel: "Search",
+        browseSearchPlaceholder: "Search shelters or cities",
+        browseEmpty: "No shelters match those filters. The filters are being very picky today.",
+        callButton: "Call",
+        emailButton: "Email",
+        websiteButton: "Website",
+        typeDogs: "Dogs",
+        typeCats: "Cats",
+        typeRabbits: "Rabbits",
+        typeBirds: "Birds",
+        typeOther: "Other",
+        animalsLabel: "Unadopted animals",
+        animalsHint: "0 means the shelter has room to breathe; 25 means the waiting room is too popular.",
+        workersLabel: "Workers",
+        workersHint: "0 means staffing is strong; 25 means one person is probably doing seven jobs.",
+        foodLabel: "Food supply",
+        foodHint: "0 means the pantry is ready; 25 means dinner plans need backup.",
+        spaceLabel: "Shelter space",
+        spaceHint: "0 means enough clean, safe space; 25 means elbow room has left the chat.",
+        currentScore: "Current score",
+        addButton: "Register shelter",
+        directoryTitle: "Browse shelters",
+        directoryHelp: "Use the animal filter to find dog shelters, cat shelters, or mixed animal shelters.",
+        emptyState: "No shelters added yet. A very quiet list, honestly suspicious.",
+        noFilterMatches: "No shelters match this animal filter. Try widening the net a little.",
+        noPhoto: "No photo yet",
+        shelterSingular: "shelter",
+        shelterPlural: "shelters"
+      },
+      ko: {
+        title: "보호소 찾기",
+        languageLabel: "언어",
+        subhead: "보호소를 등록하고, 동물 종류로 찾아보고, 지도와 연락처를 확인하세요. 목록을 경쟁처럼 만들지 않습니다.",
+        registerModeButton: "보호소 등록",
+        registerModeHint: "보호소 연락처, 동물, 사진, 선택 점수를 추가하세요.",
+        adoptModeButton: "보호소 둘러보기",
+        adoptModeHint: "개 보호소와 다른 동물 보호소를 찾고, 지도에서 확인한 뒤 연락하세요.",
+        formTitle: "보호소 등록",
+        stepContact: "1. 보호소 기본 정보",
+        requiredNote: "필수 항목은 표시되어 있습니다",
+        requiredBadge: "필수",
+        stepAnimals: "2. 동물과 사진",
+        stepAnimalsNote: "사진은 선택 사항",
+        stepScore: "3. 선택 우선순위 점수",
+        stepScoreNote: "항목당 0-25점",
+        scoreOutOf: "25점 만점",
+        scoreNoSelection: "점수 없음",
+        nameLabel: "보호소 이름",
+        namePlaceholder: "예: 노스사이드 동물 보호소",
+        contactNameLabel: "등록 담당자",
+        contactNamePlaceholder: "예: 김민지",
+        emailLabel: "등록 이메일",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "웹사이트",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "국제 전화번호",
+        phonePlaceholder: "예: +82 2 555 0148",
+        locationLabel: "위치",
+        locationPlaceholder: "도시, 지역, 국가",
+        photoLabel: "보호소 사진",
+        photoHint: "JPG, PNG 또는 다른 이미지를 업로드하세요. 멋진 사진도 좋고, 살짝 흐린 사진도 괜찮습니다.",
+        animalTypesLabel: "보호 가능한 동물 종류(최대 5개, 동물원 전체는 말고요)",
+        mainTypeLabel: "대표 동물 종류",
+        mainTypePlaceholder: "대표 종류 선택",
+        mainTypeHint: "이 보호소가 가장 도움이 필요한 동물 종류를 선택하세요.",
+        filterLabel: "원하는 동물로 필터",
+        filterAll: "모든 동물",
+        metricTotal: "표시된 보호소",
+        metricUrgent: "개 보호소",
+        metricAverage: "지도 표시 보호소",
+        summaryTitle: "빠른 요약",
+        summaryShowing: "표시 중",
+        summaryShelters: "보호소",
+        summaryDogFriendly: "개 가능",
+        summaryMapped: "지도 표시",
+        summarySaved: "저장됨",
+        mapTitle: "보호소 지도",
+        mapHelp: "가까이 확대하면 지도 데이터가 있는 곳의 도로와 건물 윤곽이 보입니다.",
+        mapLoading: "건물 상세 지도를 불러오는 중...",
+        mapReady: "건물 상세 지도가 준비되었습니다",
+        mapUnavailable: "지도를 불러오려면 인터넷이 필요합니다.",
+        mapNote: "표시는 대략적인 보호소 위치입니다. 방문 전 웹사이트나 전화로 확인하세요.",
+        mapButton: "지도",
+        zoomMapButton: "확대",
+        saveButton: "저장",
+        savedButton: "저장됨",
+        addedMessage: "보호소가 등록되었습니다. 목록에 새 이웃이 생겼어요.",
+        optionalScoreTitle: "점수",
+        optionalBadge: "선택 사항",
+        optionalScoreHelp: "아직 모르면 비워 두세요. 추측 금지입니다. 점수가 없으면 점수 없음으로 표시됩니다.",
+        notScored: "점수 없음",
+        cardMainType: "대표",
+        cardContact: "담당",
+        browseTitle: "보호소 둘러보기",
+        browseHelp: "이름, 도시, 동물 종류 또는 담당자로 검색하세요. 대부분의 받은편지함보다 얌전합니다.",
+        browseSearchLabel: "검색",
+        browseSearchPlaceholder: "보호소 또는 도시 검색",
+        browseEmpty: "이 필터와 일치하는 보호소가 없습니다. 오늘 필터가 꽤 까다롭네요.",
+        callButton: "전화",
+        emailButton: "이메일",
+        websiteButton: "웹사이트",
+        typeDogs: "개",
+        typeCats: "고양이",
+        typeRabbits: "토끼",
+        typeBirds: "새",
+        typeOther: "기타",
+        animalsLabel: "입양되지 않은 동물",
+        animalsHint: "0점은 수용 여유가 좋고, 25점은 동물이 너무 많다는 뜻입니다.",
+        workersLabel: "직원",
+        workersHint: "0점은 인력이 충분하고, 25점은 인력이 매우 부족하다는 뜻입니다.",
+        foodLabel: "사료 공급",
+        foodHint: "0점은 사료가 충분하고, 25점은 사료가 부족하다는 뜻입니다.",
+        spaceLabel: "보호소 공간",
+        spaceHint: "0점은 공간이 충분하고, 25점은 공간이 부족하다는 뜻입니다.",
+        currentScore: "현재 점수",
+        addButton: "보호소 등록",
+        directoryTitle: "보호소 둘러보기",
+        directoryHelp: "동물 필터로 개, 고양이 또는 여러 동물이 있는 보호소를 찾으세요.",
+        emptyState: "아직 추가된 보호소가 없습니다. 너무 조용해서 살짝 수상합니다.",
+        noFilterMatches: "이 동물 필터와 일치하는 보호소가 없습니다. 범위를 조금 넓혀 보세요.",
+        noPhoto: "사진은 아직 없음",
+        shelterSingular: "보호소",
+        shelterPlural: "보호소"
+      },
+      el: {
+        title: "Εύρεση Καταφυγίων",
+        languageLabel: "Γλώσσα",
+        subhead: "Καταχωρίστε καταφύγια, βρείτε τύπους ζώων, δείτε τον χάρτη και επικοινωνήστε χωρίς κατάταξη.",
+        registerModeButton: "Εγγραφή καταφυγίου",
+        registerModeHint: "Προσθέστε στοιχεία, ζώα, φωτογραφίες και προαιρετικούς βαθμούς.",
+        adoptModeButton: "Περιήγηση καταφυγίων",
+        adoptModeHint: "Βρείτε καταφύγια σκύλων και άλλα καταφύγια ζώων, με χάρτη και στοιχεία επικοινωνίας.",
+        formTitle: "Εγγραφή καταφυγίου",
+        stepContact: "1. Βασικά καταφυγίου",
+        requiredNote: "Τα υποχρεωτικά πεδία επισημαίνονται",
+        requiredBadge: "Υποχρεωτικό",
+        stepAnimals: "2. Ζώα και φωτογραφία",
+        stepAnimalsNote: "Η φωτογραφία είναι προαιρετική",
+        stepScore: "3. Προαιρετική βαθμολογία προτεραιότητας",
+        stepScoreNote: "0 έως 25 ανά πεδίο",
+        scoreOutOf: "από 25",
+        scoreNoSelection: "Χωρίς βαθμό",
+        nameLabel: "Όνομα καταφυγίου",
+        namePlaceholder: "Παράδειγμα: Northside Animal Care",
+        contactNameLabel: "Υπεύθυνος εγγραφής",
+        contactNamePlaceholder: "Παράδειγμα: Maria Lee",
+        emailLabel: "Email εγγραφής",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "Ιστότοπος",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "Διεθνής αριθμός τηλεφώνου",
+        phonePlaceholder: "Παράδειγμα: +30 21 0555 0148",
+        locationLabel: "Τοποθεσία",
+        locationPlaceholder: "Πόλη, περιοχή, χώρα",
+        photoLabel: "Φωτογραφία καταφυγίου",
+        photoHint: "Ανεβάστε JPG, PNG ή άλλη εικόνα. Οι καλές πόζες βοηθούν, οι θολές φωτογραφίες συγχωρούνται.",
+        animalTypesLabel: "Διαθέσιμοι τύποι ζώων (έως 5, όχι ολόκληρος ζωολογικός κήπος)",
+        mainTypeLabel: "Κύριος τύπος ζώου",
+        mainTypePlaceholder: "Επιλέξτε κύριο τύπο",
+        mainTypeHint: "Επιλέξτε τον τύπο ζώου με τη μεγαλύτερη ανάγκη βοήθειας.",
+        filterLabel: "Φίλτρο ζώου που θέλετε",
+        filterAll: "Όλα τα ζώα",
+        metricTotal: "Καταφύγια που εμφανίζονται",
+        metricUrgent: "Καταφύγια σκύλων",
+        metricAverage: "Καταφύγια στον χάρτη",
+        summaryTitle: "Γρήγορη σύνοψη",
+        summaryShowing: "Εμφανίζονται",
+        summaryShelters: "καταφύγια",
+        summaryDogFriendly: "με σκύλους",
+        summaryMapped: "στον χάρτη",
+        summarySaved: "αποθηκευμένα",
+        mapTitle: "Χάρτης καταφυγίων",
+        mapHelp: "Κάντε κοντινό ζουμ για δρόμους και περιγράμματα κτιρίων όπου υπάρχουν δεδομένα.",
+        mapLoading: "Φόρτωση χάρτη κτιρίων...",
+        mapReady: "Ο χάρτης λεπτομερειών είναι έτοιμος",
+        mapUnavailable: "Ο χάρτης χρειάζεται διαδίκτυο για να φορτώσει.",
+        mapNote: "Οι δείκτες δείχνουν προσεγγιστικές τοποθεσίες. Επιβεβαιώστε από τον ιστότοπο ή το τηλέφωνο πριν την επίσκεψη.",
+        mapButton: "Χάρτης",
+        zoomMapButton: "Ζουμ",
+        saveButton: "Αποθήκευση",
+        savedButton: "Αποθηκεύτηκε",
+        addedMessage: "Το καταφύγιο καταχωρίστηκε. Η λίστα απέκτησε νέο συγκάτοικο.",
+        optionalScoreTitle: "Βαθμολογία",
+        optionalBadge: "Προαιρετικό",
+        optionalScoreHelp: "Αφήστε τα κενά αν δεν γνωρίζετε ακόμη. Χωρίς μαντεψιές: οι καταχωρίσεις χωρίς βαθμούς εμφανίζονται χωρίς βαθμολογία.",
+        notScored: "Χωρίς βαθμολογία",
+        cardMainType: "Κύριο",
+        cardContact: "Επαφή",
+        browseTitle: "Περιήγηση καταφυγίων",
+        browseHelp: "Αναζητήστε με όνομα, πόλη, τύπο ζώου ή επαφή. Η λίστα φέρεται καλύτερα από πολλά inbox.",
+        browseSearchLabel: "Αναζήτηση",
+        browseSearchPlaceholder: "Αναζήτηση καταφυγίων ή πόλεων",
+        browseEmpty: "Κανένα καταφύγιο δεν ταιριάζει. Τα φίλτρα είναι πολύ απαιτητικά σήμερα.",
+        callButton: "Κλήση",
+        emailButton: "Email",
+        websiteButton: "Ιστότοπος",
+        typeDogs: "Σκύλοι",
+        typeCats: "Γάτες",
+        typeRabbits: "Κουνέλια",
+        typeBirds: "Πουλιά",
+        typeOther: "Άλλο",
+        animalsLabel: "Μη υιοθετημένα ζώα",
+        animalsHint: "Το 0 σημαίνει άνετο φορτίο ζώων· το 25 σημαίνει υπερβολικά πολλά ζώα.",
+        workersLabel: "Εργαζόμενοι",
+        workersHint: "Το 0 σημαίνει ισχυρή στελέχωση· το 25 σημαίνει σοβαρή έλλειψη προσωπικού.",
+        foodLabel: "Προμήθεια τροφής",
+        foodHint: "Το 0 σημαίνει επαρκής τροφή· το 25 σημαίνει χαμηλή προμήθεια τροφής.",
+        spaceLabel: "Χώρος καταφυγίου",
+        spaceHint: "Το 0 σημαίνει αρκετός χώρος· το 25 σημαίνει έλλειψη χώρου.",
+        currentScore: "Τρέχουσα βαθμολογία",
+        addButton: "Εγγραφή",
+        directoryTitle: "Περιήγηση καταφυγίων",
+        directoryHelp: "Χρησιμοποιήστε το φίλτρο ζώου για καταφύγια σκύλων, γατών ή μικτά καταφύγια.",
+        emptyState: "Δεν έχουν προστεθεί καταφύγια. Ησυχία που σχεδόν φαίνεται ύποπτη.",
+        noFilterMatches: "Κανένα καταφύγιο δεν ταιριάζει με αυτό το φίλτρο. Ανοίξτε λίγο το δίχτυ.",
+        noPhoto: "Χωρίς φωτογραφία ακόμη",
+        shelterSingular: "καταφύγιο",
+        shelterPlural: "καταφύγια"
+      },
+      es: {
+        title: "Buscador de Refugios",
+        languageLabel: "Idioma",
+        subhead: "Registra refugios, explora tipos de animales, revisa el mapa y contacta sin convertir la lista en una competencia.",
+        registerModeButton: "Registrar refugio",
+        registerModeHint: "Agrega contacto, animales, fotos y puntuaciones opcionales.",
+        adoptModeButton: "Explorar refugios",
+        adoptModeHint: "Encuentra refugios de perros y otros refugios de animales, con mapa y contacto.",
+        formTitle: "Registrar refugio",
+        stepContact: "1. Datos básicos",
+        requiredNote: "Los campos obligatorios están marcados",
+        requiredBadge: "Obligatorio",
+        stepAnimals: "2. Animales y foto",
+        stepAnimalsNote: "La foto es opcional",
+        stepScore: "3. Puntuación opcional",
+        stepScoreNote: "0 a 25 por campo",
+        scoreOutOf: "de 25",
+        scoreNoSelection: "Sin puntuación",
+        nameLabel: "Nombre del refugio",
+        namePlaceholder: "Ejemplo: Northside Animal Care",
+        contactNameLabel: "Contacto de registro",
+        contactNamePlaceholder: "Ejemplo: Maya Lee",
+        emailLabel: "Correo de registro",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "Sitio web",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "Número telefónico internacional",
+        phonePlaceholder: "Ejemplo: +34 91 555 0148",
+        locationLabel: "Ubicación",
+        locationPlaceholder: "Ciudad, región, país",
+        photoLabel: "Foto del refugio",
+        photoHint: "Sube JPG, PNG u otra imagen. Las fotos con estilo ayudan; las borrosas también sobreviven.",
+        animalTypesLabel: "Tipos de animales disponibles (elige hasta 5, no todo el zoológico)",
+        mainTypeLabel: "Tipo principal de animal",
+        mainTypePlaceholder: "Elige tipo principal",
+        mainTypeHint: "Elige el tipo de animal con el que este refugio necesita más ayuda.",
+        filterLabel: "Filtrar por animal deseado",
+        filterAll: "Todos los animales",
+        metricTotal: "Refugios mostrados",
+        metricUrgent: "Refugios con perros",
+        metricAverage: "Refugios en mapa",
+        summaryTitle: "Resumen rápido",
+        summaryShowing: "Mostrando",
+        summaryShelters: "refugios",
+        summaryDogFriendly: "con perros",
+        summaryMapped: "en el mapa",
+        summarySaved: "guardados",
+        mapTitle: "Mapa de refugios",
+        mapHelp: "Acércate para ver calles y contornos de edificios donde haya datos disponibles.",
+        mapLoading: "Cargando mapa con edificios...",
+        mapReady: "Mapa con detalle de edificios listo",
+        mapUnavailable: "El mapa necesita internet para cargarse.",
+        mapNote: "Los marcadores usan ubicaciones aproximadas. Confirma en el sitio web o por teléfono antes de visitar.",
+        mapButton: "Mapa",
+        zoomMapButton: "Acercar",
+        saveButton: "Guardar",
+        savedButton: "Guardado",
+        addedMessage: "Refugio registrado. La lista acaba de ganar un nuevo compañero.",
+        optionalScoreTitle: "Puntuación",
+        optionalBadge: "Opcional",
+        optionalScoreHelp: "Déjalo en blanco si todavía no lo sabes. Sin adivinanzas: los listados sin puntuación se muestran como no puntuados.",
+        notScored: "Sin puntuación",
+        cardMainType: "Principal",
+        cardContact: "Contacto",
+        browseTitle: "Explorar refugios",
+        browseHelp: "Busca por nombre, ciudad, tipo de animal o contacto. La lista se porta mejor que muchos correos.",
+        browseSearchLabel: "Buscar",
+        browseSearchPlaceholder: "Buscar refugios o ciudades",
+        browseEmpty: "Ningún refugio coincide con esos filtros. Hoy están muy exigentes.",
+        callButton: "Llamar",
+        emailButton: "Email",
+        websiteButton: "Sitio web",
+        typeDogs: "Perros",
+        typeCats: "Gatos",
+        typeRabbits: "Conejos",
+        typeBirds: "Aves",
+        typeOther: "Otro",
+        animalsLabel: "Animales no adoptados",
+        animalsHint: "0 significa carga cómoda; 25 significa demasiados animales esperando.",
+        workersLabel: "Trabajadores",
+        workersHint: "0 significa personal suficiente; 25 significa falta grave de personal.",
+        foodLabel: "Suministro de comida",
+        foodHint: "0 significa comida suficiente; 25 significa poco suministro de comida.",
+        spaceLabel: "Espacio del refugio",
+        spaceHint: "0 significa espacio suficiente; 25 significa falta de espacio.",
+        currentScore: "Puntuación actual",
+        addButton: "Registrar refugio",
+        directoryTitle: "Explorar refugios",
+        directoryHelp: "Usa el filtro de animales para encontrar refugios de perros, gatos o animales mixtos.",
+        emptyState: "Todavía no hay refugios agregados. Una lista tan silenciosa que sospecha de sí misma.",
+        noFilterMatches: "Ningún refugio coincide con este filtro. Prueba abrir un poco la red.",
+        noPhoto: "Sin foto todavía",
+        shelterSingular: "refugio",
+        shelterPlural: "refugios"
+      },
+      fr: {
+        title: "Recherche de Refuges",
+        languageLabel: "Langue",
+        subhead: "Enregistrez des refuges, parcourez les types d'animaux, consultez la carte et contactez sans transformer la liste en concours.",
+        registerModeButton: "Enregistrer un refuge",
+        registerModeHint: "Ajoutez contact, animaux, photos et scores facultatifs.",
+        adoptModeButton: "Parcourir les refuges",
+        adoptModeHint: "Trouvez des refuges avec chiens et d'autres refuges pour animaux, avec carte et contacts.",
+        formTitle: "Enregistrer un refuge",
+        stepContact: "1. Infos du refuge",
+        requiredNote: "Les champs obligatoires sont indiqués",
+        requiredBadge: "Obligatoire",
+        stepAnimals: "2. Animaux et photo",
+        stepAnimalsNote: "La photo est facultative",
+        stepScore: "3. Score de priorité facultatif",
+        stepScoreNote: "0 à 25 par champ",
+        scoreOutOf: "sur 25",
+        scoreNoSelection: "Pas de score",
+        nameLabel: "Nom du refuge",
+        namePlaceholder: "Exemple : Northside Animal Care",
+        contactNameLabel: "Contact d'inscription",
+        contactNamePlaceholder: "Exemple : Maya Lee",
+        emailLabel: "Email d'inscription",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "Site web",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "Numéro de téléphone international",
+        phonePlaceholder: "Exemple : +33 1 55 55 01 48",
+        locationLabel: "Lieu",
+        locationPlaceholder: "Ville, région, pays",
+        photoLabel: "Photo du refuge",
+        photoHint: "Importez un JPG, PNG ou une autre image. Les belles poses aident; les photos floues sont tolérées.",
+        animalTypesLabel: "Types d'animaux disponibles (jusqu'à 5, pas tout le zoo)",
+        mainTypeLabel: "Type d'animal principal",
+        mainTypePlaceholder: "Choisir le type principal",
+        mainTypeHint: "Choisissez le type d'animal pour lequel ce refuge a le plus besoin d'aide.",
+        filterLabel: "Filtrer par animal souhaité",
+        filterAll: "Tous les animaux",
+        metricTotal: "Refuges affichés",
+        metricUrgent: "Refuges avec chiens",
+        metricAverage: "Refuges sur carte",
+        summaryTitle: "Résumé rapide",
+        summaryShowing: "Affichage de",
+        summaryShelters: "refuges",
+        summaryDogFriendly: "avec chiens",
+        summaryMapped: "sur la carte",
+        summarySaved: "enregistrés",
+        mapTitle: "Carte des refuges",
+        mapHelp: "Zoomez pour voir les rues et contours de bâtiments quand les données existent.",
+        mapLoading: "Chargement de la carte avec bâtiments...",
+        mapReady: "Carte détaillée prête",
+        mapUnavailable: "La carte nécessite internet pour se charger.",
+        mapNote: "Les marqueurs indiquent des positions approximatives. Confirmez sur le site web ou par téléphone avant de visiter.",
+        mapButton: "Carte",
+        zoomMapButton: "Zoomer",
+        saveButton: "Enregistrer",
+        savedButton: "Enregistré",
+        addedMessage: "Refuge enregistré. La liste a officiellement un nouveau colocataire.",
+        optionalScoreTitle: "Score",
+        optionalBadge: "Facultatif",
+        optionalScoreHelp: "Laissez ces champs vides si vous ne savez pas encore. Pas de devinettes: les annonces sans score indiquent non noté.",
+        notScored: "Non noté",
+        cardMainType: "Principal",
+        cardContact: "Contact",
+        browseTitle: "Parcourir les refuges",
+        browseHelp: "Recherchez par nom, ville, type d'animal ou contact. La liste se comporte mieux que beaucoup de boîtes mail.",
+        browseSearchLabel: "Recherche",
+        browseSearchPlaceholder: "Rechercher refuges ou villes",
+        browseEmpty: "Aucun refuge ne correspond à ces filtres. Ils sont très exigeants aujourd'hui.",
+        callButton: "Appeler",
+        emailButton: "Email",
+        websiteButton: "Site web",
+        typeDogs: "Chiens",
+        typeCats: "Chats",
+        typeRabbits: "Lapins",
+        typeBirds: "Oiseaux",
+        typeOther: "Autre",
+        animalsLabel: "Animaux non adoptés",
+        animalsHint: "0 signifie une charge confortable; 25 signifie trop d'animaux en attente.",
+        workersLabel: "Employés",
+        workersHint: "0 signifie une équipe solide; 25 signifie un gros manque de personnel.",
+        foodLabel: "Réserve de nourriture",
+        foodHint: "0 signifie assez de nourriture; 25 signifie une réserve faible.",
+        spaceLabel: "Espace du refuge",
+        spaceHint: "0 signifie assez d'espace; 25 signifie un manque d'espace.",
+        currentScore: "Score actuel",
+        addButton: "Enregistrer",
+        directoryTitle: "Parcourir les refuges",
+        directoryHelp: "Utilisez le filtre animal pour trouver des refuges avec chiens, chats ou animaux variés.",
+        emptyState: "Aucun refuge ajouté pour le moment. Une liste si calme qu'elle devient suspecte.",
+        noFilterMatches: "Aucun refuge ne correspond à ce filtre. Essayez d'élargir un peu le filet.",
+        noPhoto: "Pas encore de photo",
+        shelterSingular: "refuge",
+        shelterPlural: "refuges"
+      },
+      it: {
+        title: "Trova Rifugi",
+        languageLabel: "Lingua",
+        subhead: "Registra rifugi, sfoglia i tipi di animali, controlla la mappa e contatta senza trasformare la lista in una gara.",
+        registerModeButton: "Registra un rifugio",
+        registerModeHint: "Aggiungi contatti, animali, foto e punteggi opzionali.",
+        adoptModeButton: "Sfoglia rifugi",
+        adoptModeHint: "Trova rifugi con cani e altri rifugi per animali, con mappa e contatti.",
+        formTitle: "Registra un rifugio",
+        stepContact: "1. Dati del rifugio",
+        requiredNote: "I campi obbligatori sono segnati",
+        requiredBadge: "Obbligatorio",
+        stepAnimals: "2. Animali e foto",
+        stepAnimalsNote: "La foto è facoltativa",
+        stepScore: "3. Punteggio opzionale",
+        stepScoreNote: "0-25 per campo",
+        scoreOutOf: "su 25",
+        scoreNoSelection: "Nessun punteggio",
+        nameLabel: "Nome del rifugio",
+        namePlaceholder: "Esempio: Northside Animal Care",
+        contactNameLabel: "Contatto registrazione",
+        contactNamePlaceholder: "Esempio: Maya Lee",
+        emailLabel: "Email registrazione",
+        emailPlaceholder: "contact@shelter.org",
+        websiteLabel: "Sito web",
+        websitePlaceholder: "https://example.org",
+        phoneLabel: "Numero di telefono internazionale",
+        phonePlaceholder: "Esempio: +39 06 5550 148",
+        locationLabel: "Posizione",
+        locationPlaceholder: "Città, regione, paese",
+        photoLabel: "Foto del rifugio",
+        photoHint: "Carica JPG, PNG o un'altra immagine. Le foto glamour aiutano; quelle sfocate passano comunque.",
+        animalTypesLabel: "Tipi di animali disponibili (fino a 5, non tutto lo zoo)",
+        mainTypeLabel: "Tipo principale di animale",
+        mainTypePlaceholder: "Scegli tipo principale",
+        mainTypeHint: "Scegli il tipo di animale per cui questo rifugio ha più bisogno di aiuto.",
+        filterLabel: "Filtra per animale desiderato",
+        filterAll: "Tutti gli animali",
+        metricTotal: "Rifugi mostrati",
+        metricUrgent: "Rifugi con cani",
+        metricAverage: "Rifugi su mappa",
+        summaryTitle: "Riepilogo rapido",
+        summaryShowing: "Mostrando",
+        summaryShelters: "rifugi",
+        summaryDogFriendly: "con cani",
+        summaryMapped: "sulla mappa",
+        summarySaved: "salvati",
+        mapTitle: "Mappa dei rifugi",
+        mapHelp: "Avvicina lo zoom per vedere strade e sagome degli edifici dove i dati sono disponibili.",
+        mapLoading: "Caricamento mappa con edifici...",
+        mapReady: "Mappa dettagliata pronta",
+        mapUnavailable: "La mappa richiede internet per caricarsi.",
+        mapNote: "I marker usano posizioni approssimative. Conferma su sito web o telefono prima di visitare.",
+        mapButton: "Mappa",
+        zoomMapButton: "Ingrandisci",
+        saveButton: "Salva",
+        savedButton: "Salvato",
+        addedMessage: "Rifugio registrato. La lista ha ufficialmente un nuovo coinquilino.",
+        optionalScoreTitle: "Punteggio",
+        optionalBadge: "Facoltativo",
+        optionalScoreHelp: "Lascia vuoto se non lo sai ancora. Niente indovinelli: gli annunci senza punteggio risultano non valutati.",
+        notScored: "Non valutato",
+        cardMainType: "Principale",
+        cardContact: "Contatto",
+        browseTitle: "Sfoglia rifugi",
+        browseHelp: "Cerca per nome, città, tipo di animale o contatto. La lista si comporta meglio di molte inbox.",
+        browseSearchLabel: "Cerca",
+        browseSearchPlaceholder: "Cerca rifugi o città",
+        browseEmpty: "Nessun rifugio corrisponde a quei filtri. Oggi sono molto esigenti.",
+        callButton: "Chiama",
+        emailButton: "Email",
+        websiteButton: "Sito web",
+        typeDogs: "Cani",
+        typeCats: "Gatti",
+        typeRabbits: "Conigli",
+        typeBirds: "Uccelli",
+        typeOther: "Altro",
+        animalsLabel: "Animali non adottati",
+        animalsHint: "0 significa carico tranquillo; 25 significa troppi animali in attesa.",
+        workersLabel: "Operatori",
+        workersHint: "0 significa personale sufficiente; 25 significa grave mancanza di personale.",
+        foodLabel: "Scorte di cibo",
+        foodHint: "0 significa cibo sufficiente; 25 significa scorte basse.",
+        spaceLabel: "Spazio del rifugio",
+        spaceHint: "0 significa spazio sufficiente; 25 significa mancanza di spazio.",
+        currentScore: "Punteggio attuale",
+        addButton: "Registra rifugio",
+        directoryTitle: "Sfoglia rifugi",
+        directoryHelp: "Usa il filtro animali per trovare rifugi con cani, gatti o animali misti.",
+        emptyState: "Nessun rifugio aggiunto. Una lista così silenziosa da sembrare sospetta.",
+        noFilterMatches: "Nessun rifugio corrisponde a questo filtro. Prova ad allargare un po' la rete.",
+        noPhoto: "Ancora nessuna foto",
+        shelterSingular: "rifugio",
+        shelterPlural: "rifugi"
+      }
+    };
+
+    function createId() {
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    const storageKeys = {
+      registered: "shelter-priority-registered-v1",
+      saved: "shelter-priority-saved-v1"
+    };
+
+    function readStoredArray(key) {
+      try {
+        const value = localStorage.getItem(key);
+        const parsed = value ? JSON.parse(value) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeStoredArray(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (error) {
+        // Storage can be unavailable in strict browser modes; the app still works for the current session.
+      }
+    }
+
+    let shelters = [
+      {
+        id: "real-aspca-nyc",
+        name: "ASPCA Adoption Center",
+        contactName: "Adoptions team",
+        email: "",
+        website: "https://www.aspca.org/nyc/aspca-adoption-center-nyc",
+        phone: "+1 212 876 7700 ext. 4120",
+        location: "424 E. 92nd St., New York, NY 10128, USA",
+        mapDot: { lat: 40.7808, lng: -73.9467 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-best-friends-kanab",
+        name: "Best Friends Animal Sanctuary",
+        contactName: "Sanctuary team",
+        email: "",
+        website: "https://bestfriends.org/sanctuary",
+        phone: "+1 435 688 2327",
+        location: "5001 Angel Canyon Rd, Kanab, UT 84741, USA",
+        mapDot: { lat: 37.1322, lng: -112.5459 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
+      },
+      {
+        id: "real-battersea-london",
+        name: "Battersea Dogs & Cats Home",
+        contactName: "Rehoming team",
+        email: "info@battersea.org.uk",
+        website: "https://www.battersea.org.uk/about-us/contact-us",
+        phone: "+44 800 001 4444",
+        location: "4 Battersea Park Road, London SW8 4AA, UK",
+        mapDot: { lat: 51.4785, lng: -0.1479 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-toronto-humane",
+        name: "Toronto Humane Society",
+        contactName: "Adoptions team",
+        email: "adoption@torontohumanesociety.com",
+        website: "https://www.torontohumanesociety.com/about-us/contact-us/",
+        phone: "+1 416 392 2273",
+        location: "11 River Street, Toronto, Ontario M5A 4C2, Canada",
+        mapDot: { lat: 43.6575, lng: -79.3563 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
+      },
+      {
+        id: "real-paws-chicago",
+        name: "PAWS Chicago Adoption Center",
+        contactName: "Adoption center",
+        email: "",
+        website: "https://www.pawschicago.org/contact-us",
+        phone: "+1 773 935 7297",
+        location: "1997 N. Clybourn Ave., Chicago, IL 60614, USA",
+        mapDot: { lat: 41.9177, lng: -87.6554 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-paws-lynnwood",
+        name: "PAWS Companion Animal Shelter",
+        contactName: "Adoptions team",
+        email: "",
+        website: "https://www.paws.org/adopt/our-shelters/",
+        phone: "+1 425 787 2500",
+        location: "15305 44th Ave W, Lynnwood, WA 98087, USA",
+        mapDot: { lat: 47.8589, lng: -122.2921 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-austin-pets-alive",
+        name: "Austin Pets Alive!",
+        contactName: "Adoptions team",
+        email: "",
+        website: "https://www.austinpetsalive.org/about",
+        phone: "+1 512 961 6519",
+        location: "1156 W. Cesar Chavez St., Austin, TX 78703, USA",
+        mapDot: { lat: 30.2698, lng: -97.7584 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-austin-animal-center",
+        name: "Austin Animal Center",
+        contactName: "Adoption center",
+        email: "",
+        website: "https://www.austintexas.gov/services/adopt-pet",
+        phone: "+1 311",
+        location: "7201 Levander Loop, Austin, TX 78702, USA",
+        mapDot: { lat: 30.2539, lng: -97.6907 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
+      },
+      {
+        id: "real-austin-humane-society",
+        name: "Austin Humane Society",
+        contactName: "Adoption team",
+        email: "adoption@austinhumanesociety.org",
+        website: "https://austinhumanesociety.org/contact/",
+        phone: "+1 512 646 7387",
+        location: "124 W. Anderson Lane, Austin, TX 78752, USA",
+        mapDot: { lat: 30.3434, lng: -97.7057 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-san-diego-humane",
+        name: "San Diego Humane Society",
+        contactName: "Adoptions team",
+        email: "info@sdhumane.org",
+        website: "https://resources.sdhumane.org/sops/Guest_Relations/Contact_Information",
+        phone: "+1 619 299 7012",
+        location: "5500 Gaines St., San Diego, CA 92110, USA",
+        mapDot: { lat: 32.7659, lng: -117.1955 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
+      },
+      {
+        id: "real-dogs-trust-basildon",
+        name: "Dogs Trust Basildon",
+        contactName: "Rehoming centre",
+        email: "info@dogstrust.org.uk",
+        website: "https://www.dogstrust.org.uk/rehoming/our-centres/essex",
+        phone: "+44 303 003 0000",
+        location: "Nevendon Road, Wickford, Essex SS12 0FH, UK",
+        mapDot: { lat: 51.5951, lng: 0.5296 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs"]
+      },
+      {
+        id: "real-seoul-mapo",
+        name: "Seoul Animal Welfare Support Center Mapo",
+        contactName: "Mapo center",
+        email: "",
+        website: "https://news.seoul.go.kr/env/navigation",
+        phone: "+82 2 2124 2839",
+        location: "31 Maebongsan-ro, Mapo-gu, Seoul, South Korea",
+        mapDot: { lat: 37.5762, lng: 126.8891 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-seoul-guro",
+        name: "Seoul Animal Welfare Support Center Guro",
+        contactName: "Guro center",
+        email: "",
+        website: "https://news.seoul.go.kr/env/navigation",
+        phone: "+82 2 2636 7650",
+        location: "472 Gyeongin-ro, Guro-gu, Seoul, South Korea",
+        mapDot: { lat: 37.4965, lng: 126.8707 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["cats"]
+      },
+      {
+        id: "real-seoul-dongdaemun",
+        name: "Seoul Animal Welfare Support Center Dongdaemun",
+        contactName: "Dongdaemun center",
+        email: "",
+        website: "https://news.seoul.go.kr/env/navigation",
+        phone: "+82 2 921 2415",
+        location: "201 Muhak-ro, Dongdaemun-gu, Seoul, South Korea",
+        mapDot: { lat: 37.5865, lng: 127.0318 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-spca-hk-kowloon",
+        name: "SPCA Hong Kong Kowloon Centre",
+        contactName: "Kowloon centre",
+        email: "klnreception@spca.org.hk",
+        website: "https://www.spca.org.hk/contact/spca-centres/kowloon-centre/",
+        phone: "+852 2713 9104",
+        location: "105 Princess Margaret Road, Kowloon, Hong Kong",
+        mapDot: { lat: 22.3169, lng: 114.1819 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-jaws-tokyo",
+        name: "Japan Animal Welfare Society",
+        contactName: "Animal welfare office",
+        email: "",
+        website: "https://www.jaws.or.jp/about01/about04/",
+        phone: "+81 3 6455 7733",
+        location: "5-21-15 Higashigotanda, Shinagawa-ku, Tokyo 141-0022, Japan",
+        mapDot: { lat: 35.6279, lng: 139.7241 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-spca-singapore",
+        name: "SPCA Singapore",
+        contactName: "Adoptions team",
+        email: "enquiries@spca.org.sg",
+        website: "https://spca.org.sg/contact-us/",
+        phone: "+65 6287 5355",
+        location: "50 Sungei Tengah Road, Singapore 699012",
+        mapDot: { lat: 1.3865, lng: 103.7171 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
+      },
+      {
+        id: "real-kara-thebom-paju",
+        name: "KARA The Bom Center",
+        contactName: "The Bom Center",
+        email: "info@ekara.org",
+        website: "https://www.ekara.org/thebom/vision",
+        phone: "+82 31 959 8600",
+        location: "1409 Surihol-ro, Beobwon-eup, Paju-si, Gyeonggi-do, South Korea",
+        mapDot: { lat: 37.8498, lng: 126.8835 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-care-korea",
+        name: "CARE Korea",
+        contactName: "Animal rights group",
+        email: "care@animalrights.or.kr",
+        website: "https://careanimalrights.or.kr/",
+        phone: "+82 2 313 8886",
+        location: "31 Yangpyeong-ro 22-gil, Yeongdeungpo-gu, Seoul, South Korea",
+        mapDot: { lat: 37.5372, lng: 126.8955 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-ark-osaka",
+        name: "Animal Refuge Kansai Osaka ARK",
+        contactName: "Osaka ARK",
+        email: "ark@arkbark.jp",
+        website: "https://arkbark.net/en/aboutus/ark-osaka/",
+        phone: "+81 72 737 0712",
+        location: "595 Noma Ohara, Nose-cho, Toyono-gun, Osaka-fu 563-0131, Japan",
+        mapDot: { lat: 34.9474, lng: 135.4498 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-taiwan-spca-taipei",
+        name: "Taiwan SPCA Taipei",
+        contactName: "Adoptions team",
+        email: "adoptions@spca.org.tw",
+        website: "https://www.spca.org.tw/post/adoptanimal_en",
+        phone: "+886 2 2738 2130",
+        location: "Taipei, Taiwan",
+        mapDot: { lat: 25.0330, lng: 121.5654 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-lap-hk-dog-centre",
+        name: "LAP Hong Kong Dog Adoption Centre",
+        contactName: "Dog adoption centre",
+        email: "info@lap.org.hk",
+        website: "https://www.lap.org.hk/default.aspx",
+        phone: "+852 6543 3643",
+        location: "Shop 1B, 187 Tsuen King Circuit, Tsuen Wan, Hong Kong",
+        mapDot: { lat: 22.3761, lng: 114.1094 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs"]
+      },
+      {
+        id: "real-lap-hk-cat-centre",
+        name: "LAP Hong Kong Cat Adoption Centre",
+        contactName: "Cat adoption centre",
+        email: "info@lap.org.hk",
+        website: "https://www.lap.org.hk/default.aspx",
+        phone: "+852 6691 7131",
+        location: "11 First Street, Sai Ying Pun, Hong Kong",
+        mapDot: { lat: 22.2867, lng: 114.1408 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["cats"]
+      },
+      {
+        id: "real-gumi-adoption-center",
+        name: "Gumi Companion Animal Adoption Center",
+        contactName: "Gumi center",
+        email: "",
+        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
+        phone: "+82 54 716 0211",
+        location: "43-4 Indong 22-gil, Gumi-si, Gyeongsangbuk-do, South Korea",
+        mapDot: { lat: 36.1074, lng: 128.4156 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-cheongju-animal-care",
+        name: "Cheongju Companion Animal Protection Center",
+        contactName: "Cheongju center",
+        email: "",
+        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
+        phone: "+82 43 201 2298",
+        location: "411-55 Seobu-ro, Gangnae-myeon, Heungdeok-gu, Cheongju-si, South Korea",
+        mapDot: { lat: 36.6278, lng: 127.3636 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "dogs",
+        animalTypes: ["dogs", "cats"]
+      },
+      {
+        id: "real-miryang-animal-center",
+        name: "Miryang Animal Protection Center",
+        contactName: "Miryang center",
+        email: "",
+        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
+        phone: "+82 70 4113 7288",
+        location: "472 Cheontae-ro, Samnangjin-eup, Miryang-si, Gyeongsangnam-do, South Korea",
+        mapDot: { lat: 35.4156, lng: 128.8168 },
+        photo: "",
+        builtIn: true,
+        scored: false,
+        mainType: "cats",
+        animalTypes: ["dogs", "cats"]
+      }
+    ];
+
+    shelters = [...shelters, ...readStoredArray(storageKeys.registered)];
+    let savedShelterIds = new Set(readStoredArray(storageKeys.saved));
+
+    function persistRegisteredShelters() {
+      writeStoredArray(storageKeys.registered, shelters.filter((shelter) => !shelter.builtIn));
+    }
+
+    function persistSavedShelters() {
+      writeStoredArray(storageKeys.saved, [...savedShelterIds]);
+    }
+
+    function clampScore(value) {
+      const number = Number(value);
+      if (Number.isNaN(number)) return 0;
+      return Math.max(0, Math.min(25, Math.round(number)));
+    }
+
+    function getFormScores() {
+      return Object.fromEntries(
+        scoreFields.map((field) => [field, clampScore(form.elements[field].value)])
+      );
+    }
+
+    function getSelectedAnimalTypes() {
+      return [...form.querySelectorAll("input[name='animalTypes']:checked")].map((input) => input.value);
+    }
+
+    function hasScoreData(shelter) {
+      return shelter.scored !== false && scoreFields.some((field) => shelter[field] !== undefined && shelter[field] !== null && shelter[field] !== "");
+    }
+
+    function totalScore(shelter) {
+      return scoreFields.reduce((total, field) => total + clampScore(shelter[field]), 0);
+    }
+
+    function phoneHref(phone) {
+      return `tel:${phone.replace(/[^\d+]/g, "")}`;
+    }
+
+    function mapHref(dot) {
+      return `https://www.openstreetmap.org/?mlat=${dot.lat}&mlon=${dot.lng}#map=18/${dot.lat}/${dot.lng}`;
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement("div");
+      div.textContent = String(value || "");
+      return div.innerHTML;
+    }
+
+    function animalTypeLabel(type, text = currentText()) {
+      const key = `type${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+      return text[key] || type;
+    }
+
+    function currentText() {
+      return translations[language.value] || translations.en;
+    }
+
+    function updatePhotoPreview() {
+      const text = currentText();
+      if (!selectedPhoto) {
+        photoPreview.className = "preview-frame preview-empty";
+        photoPreview.textContent = text.noPhoto;
+        return;
+      }
+
+      photoPreview.className = "preview-frame";
+      photoPreview.innerHTML = "";
+      const image = document.createElement("img");
+      image.src = selectedPhoto;
+      image.alt = text.photoLabel;
+      photoPreview.appendChild(image);
+    }
+
+    function populateScoreMenus() {
+      const text = currentText();
+      document.querySelectorAll("[data-score-select]").forEach((select) => {
+        const selectedValue = select.value;
+        select.innerHTML = "";
+
+        const blankOption = document.createElement("option");
+        blankOption.value = "";
+        blankOption.textContent = text.scoreNoSelection;
+        select.appendChild(blankOption);
+
+        for (let score = 0; score <= 25; score += 1) {
+          const option = document.createElement("option");
+          option.value = String(score);
+          option.textContent = `${score} / 25`;
+          select.appendChild(option);
+        }
+
+        select.value = selectedValue;
+      });
+    }
+
+    function applyTranslations() {
+      const text = currentText();
+      document.documentElement.lang = language.value;
+      document.querySelectorAll("[data-i18n]").forEach((element) => {
+        element.textContent = text[element.dataset.i18n];
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+        element.placeholder = text[element.dataset.i18nPlaceholder];
+      });
+      populateScoreMenus();
+      updatePhotoPreview();
+      updateLiveScore();
+      render();
+    }
+
+    function updateLiveScore() {
+      const hasAnyScore = scoreFields.some((field) => form.elements[field].value.trim() !== "");
+      liveScore.textContent = hasAnyScore ? `${totalScore(getFormScores())}/100` : currentText().notScored;
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.body.dataset.mode = mode;
+      modeButtons.forEach((button) => {
+        const isActive = button.dataset.modeTarget === mode;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+
+      if (mode === "adopt") {
+        animalFilter.value = "all";
+      }
+
+      render();
+      setTimeout(() => shelterMap && shelterMap.invalidateSize(), 0);
+    }
+
+    function initShelterMap() {
+      const text = currentText();
+      if (!window.L || !shelterMapElement) {
+        mapStatus.textContent = text.mapUnavailable;
+        return;
+      }
+
+      shelterMap = L.map(shelterMapElement, {
+        center: [40, -30],
+        zoom: 2,
+        worldCopyJump: true
+      });
+
+      const buildingDetail = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19
+      });
+
+      const humanitarianDetail = L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors, Humanitarian OpenStreetMap Team",
+        maxZoom: 20
+      });
+
+      buildingDetail.addTo(shelterMap);
+
+      L.control.layers(
+        {
+          "Building detail": buildingDetail,
+          "High-detail streets": humanitarianDetail
+        },
+        {},
+        { collapsed: false }
+      ).addTo(shelterMap);
+
+      mapStatus.textContent = text.mapReady;
+    }
+
+    function renderShelterMap(sheltersToShow) {
+      const text = currentText();
+      if (!shelterMap) return;
+
+      shelterMarkers.forEach((marker) => marker.remove());
+      shelterMarkers = [];
+      shelterMarkerById = new Map();
+
+      const mappedShelters = sheltersToShow.filter((shelter) => shelter.mapDot);
+      mappedShelters.forEach((shelter) => {
+        const marker = L.marker([shelter.mapDot.lat, shelter.mapDot.lng]).addTo(shelterMap);
+        marker.bindPopup(`<strong>${escapeHtml(shelter.name)}</strong><br>${escapeHtml(shelter.location)}`);
+        shelterMarkers.push(marker);
+        shelterMarkerById.set(shelter.id, marker);
+      });
+
+      if (shelterMarkers.length) {
+        const group = L.featureGroup(shelterMarkers);
+        shelterMap.fitBounds(group.getBounds().pad(0.18), { maxZoom: 15 });
+        mapStatus.textContent = text.mapReady;
+      } else {
+        shelterMap.setView([40, -30], 2);
+        mapStatus.textContent = text.browseEmpty;
+      }
+    }
+
+    function focusShelterOnMap(shelterId) {
+      const shelter = shelters.find((item) => item.id === shelterId);
+      if (!shelter || !shelter.mapDot) return;
+
+      shelterMapElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!shelterMap) {
+        window.open(mapHref(shelter.mapDot), "_blank", "noopener");
+        return;
+      }
+
+      setTimeout(() => {
+        shelterMap.invalidateSize();
+        shelterMap.setView([shelter.mapDot.lat, shelter.mapDot.lng], 18, { animate: true });
+        shelterMarkerById.get(shelterId)?.openPopup();
+        mapStatus.textContent = shelter.name;
+      }, 260);
+    }
+
+    function updateSummary(sheltersToShow) {
+      const text = currentText();
+      const dogFriendly = sheltersToShow.filter((shelter) => (shelter.animalTypes || []).includes("dogs")).length;
+      const mapped = sheltersToShow.filter((shelter) => shelter.mapDot).length;
+      const saved = sheltersToShow.filter((shelter) => savedShelterIds.has(shelter.id)).length;
+
+      summaryText.textContent = `${text.summaryShowing} ${sheltersToShow.length} ${text.summaryShelters}: ${dogFriendly} ${text.summaryDogFriendly}, ${mapped} ${text.summaryMapped}, ${saved} ${text.summarySaved}.`;
+    }
+
+    function getVisibleShelters() {
+      const text = currentText();
+      const selectedType = animalFilter.value;
+      const query = browseSearch.value.trim().toLowerCase();
+
+      const visible = shelters
+        .filter((shelter) => {
+          return selectedType === "all" || (shelter.animalTypes || []).includes(selectedType);
+        })
+        .filter((shelter) => {
+          if (!query) return true;
+          const haystack = [
+            shelter.name,
+            shelter.location,
+            shelter.contactName,
+            shelter.email,
+            shelter.phone,
+            shelter.website,
+            animalTypeLabel(shelter.mainType || "other", text),
+            ...(shelter.animalTypes || []).map((type) => animalTypeLabel(type, text))
+          ].join(" ").toLowerCase();
+          return haystack.includes(query);
+        });
+
+      return visible.sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    function createBrowseCard(shelter) {
+      const text = currentText();
+      const card = document.createElement("article");
+      card.className = "browse-card";
+
+      const imageHtml = shelter.photo
+        ? `<img class="browse-photo" src="${shelter.photo}" alt="">`
+        : `<div class="browse-photo photo-placeholder">${text.noPhoto}</div>`;
+
+      card.innerHTML = `
+        <div class="browse-top">
+          ${imageHtml}
+          <div>
+            <div class="browse-title-row">
+              <h3 class="browse-name"></h3>
+            </div>
+            <p class="browse-detail"></p>
+            <p class="browse-detail"></p>
+          </div>
+        </div>
+        <div class="type-tags"></div>
+        <div class="browse-actions"></div>
+      `;
+
+      card.querySelector(".browse-name").textContent = shelter.name;
+      const details = card.querySelectorAll(".browse-detail");
+      const mainLabel = document.createElement("strong");
+      mainLabel.textContent = `${text.cardMainType}:`;
+      details[0].append(mainLabel, ` ${animalTypeLabel(shelter.mainType || "other", text)}`);
+
+      const contactLabel = document.createElement("strong");
+      contactLabel.textContent = `${text.cardContact}:`;
+      details[1].append(contactLabel, ` ${shelter.contactName || text.notScored}`, document.createElement("br"), shelter.location);
+
+      const tags = card.querySelector(".type-tags");
+      (shelter.animalTypes || []).forEach((type) => {
+        const tag = document.createElement("span");
+        tag.className = "type-tag";
+        tag.textContent = animalTypeLabel(type, text);
+        tags.appendChild(tag);
+      });
+
+      const actions = card.querySelector(".browse-actions");
+      const links = [
+        shelter.phone ? { href: phoneHref(shelter.phone), label: text.callButton } : null,
+        shelter.email ? { href: `mailto:${shelter.email}`, label: text.emailButton } : null,
+        shelter.website ? { href: shelter.website, label: text.websiteButton, external: true } : null,
+        shelter.mapDot ? { href: mapHref(shelter.mapDot), label: text.mapButton, external: true } : null
+      ].filter(Boolean);
+
+      links.forEach((link) => {
+        const anchor = document.createElement("a");
+        anchor.href = link.href;
+        anchor.textContent = link.label;
+        if (link.external) {
+          anchor.target = "_blank";
+          anchor.rel = "noopener";
+        }
+        actions.appendChild(anchor);
+      });
+
+      if (shelter.mapDot) {
+        const zoomButton = document.createElement("button");
+        zoomButton.type = "button";
+        zoomButton.dataset.zoomMapId = shelter.id;
+        zoomButton.textContent = text.zoomMapButton;
+        actions.appendChild(zoomButton);
+      }
+
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.dataset.saveId = shelter.id;
+      saveButton.className = savedShelterIds.has(shelter.id) ? "is-saved" : "";
+      saveButton.textContent = savedShelterIds.has(shelter.id) ? text.savedButton : text.saveButton;
+      actions.appendChild(saveButton);
+
+      return card;
+    }
+
+    function render() {
+      const text = currentText();
+      const sorted = getVisibleShelters();
+      browseList.innerHTML = "";
+
+      sorted.forEach((shelter) => {
+        browseList.appendChild(createBrowseCard(shelter));
+      });
+
+      count.textContent = `${sorted.length} ${sorted.length === 1 ? text.shelterSingular : text.shelterPlural}`;
+      metricTotal.textContent = sorted.length;
+      metricUrgent.textContent = sorted.filter((shelter) => (shelter.animalTypes || []).includes("dogs")).length;
+      metricAverage.textContent = sorted.filter((shelter) => shelter.mapDot).length;
+      browseEmpty.textContent = shelters.length === 0 ? text.emptyState : text.browseEmpty;
+      browseEmpty.hidden = sorted.length > 0;
+      updateSummary(sorted);
+      renderShelterMap(sorted);
+    }
+
+    form.addEventListener("input", () => {
+      updateLiveScore();
+      formStatus.textContent = "";
+    });
+
+    language.addEventListener("change", applyTranslations);
+
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.modeTarget));
+    });
+
+    animalFilter.addEventListener("change", render);
+
+    browseSearch.addEventListener("input", render);
+
+    browseList.addEventListener("click", (event) => {
+      const zoomButton = event.target.closest("[data-zoom-map-id]");
+      if (zoomButton) {
+        focusShelterOnMap(zoomButton.dataset.zoomMapId);
+        return;
+      }
+
+      const button = event.target.closest("[data-save-id]");
+      if (!button) return;
+
+      const id = button.dataset.saveId;
+      if (savedShelterIds.has(id)) {
+        savedShelterIds.delete(id);
+      } else {
+        savedShelterIds.add(id);
+      }
+
+      persistSavedShelters();
+      render();
+    });
+
+    form.addEventListener("change", (event) => {
+      if (event.target.name !== "animalTypes") return;
+      const checkedTypes = getSelectedAnimalTypes();
+      if (checkedTypes.length <= 5) return;
+      event.target.checked = false;
+    });
+
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (!file) {
+        selectedPhoto = "";
+        updatePhotoPreview();
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        selectedPhoto = String(reader.result || "");
+        updatePhotoPreview();
+      });
+      reader.readAsDataURL(file);
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = form.elements.name.value.trim();
+      if (!name) return;
+      const mainType = form.elements.mainType.value;
+      const selectedTypes = Array.from(new Set([...getSelectedAnimalTypes(), mainType].filter(Boolean)));
+      const scoreProvided = scoreFields.some((field) => form.elements[field].value.trim() !== "");
+
+      shelters.push({
+        id: createId(),
+        name,
+        contactName: form.elements.contactName.value.trim(),
+        email: form.elements.email.value.trim(),
+        website: form.elements.website.value.trim(),
+        phone: form.elements.phone.value.trim(),
+        location: form.elements.location.value.trim(),
+        photo: selectedPhoto,
+        scored: scoreProvided,
+        mainType,
+        animalTypes: selectedTypes.length ? selectedTypes : ["other"],
+        ...getFormScores()
+      });
+
+      persistRegisteredShelters();
+
+      form.reset();
+      scoreFields.forEach((field) => {
+        form.elements[field].value = "";
+      });
+      form.elements.mainType.value = "";
+      selectedPhoto = "";
+      updatePhotoPreview();
+      form.elements.name.focus();
+      updateLiveScore();
+      render();
+      formStatus.textContent = currentText().addedMessage;
+    });
+    initShelterMap();
+    updateLiveScore();
+    applyTranslations();
+    setMode("adopt");
+  </script>
+</body>
+</html>
