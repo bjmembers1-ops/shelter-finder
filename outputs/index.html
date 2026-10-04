@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https://*.tile.openstreetmap.org https://*.tile.openstreetmap.fr https://unpkg.com; connect-src 'self' https://sveiatnrwkzzhvpzdagd.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests">
   <title>Shelter Finder</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
@@ -1563,7 +1564,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
   <script src="./config.js"></script>
   <script>
     const gelInteraction = document.querySelector("#gel-interaction");
@@ -2279,14 +2280,23 @@
         return shelter;
       }
 
-      const { data, error } = await sharedDb
-        .from("shelters")
-        .insert(toDbShelter(shelter))
-        .select("*")
-        .single();
+      const response = await fetch(
+        backendConfig.url + "/functions/v1/submit-shelter",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shelter)
+        }
+      );
 
-      if (error) throw error;
-      const published = fromDbShelter(data);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(payload.error || "Submission failed");
+        error.status = response.status;
+        throw error;
+      }
+
+      const published = fromDbShelter(payload.shelter);
       shelters.unshift(published);
       return published;
     }
@@ -2747,6 +2757,25 @@
         return;
       }
 
+      const allowedPhotoTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+      const maxPhotoBytes = 750 * 1024;
+
+      if (!allowedPhotoTypes.has(file.type)) {
+        photoInput.value = "";
+        selectedPhoto = "";
+        updatePhotoPreview();
+        formStatus.textContent = "Photo must be PNG, JPEG, or WebP.";
+        return;
+      }
+
+      if (file.size > maxPhotoBytes) {
+        photoInput.value = "";
+        selectedPhoto = "";
+        updatePhotoPreview();
+        formStatus.textContent = "Photo must be 750 KB or smaller.";
+        return;
+      }
+
       const reader = new FileReader();
       reader.addEventListener("load", () => {
         selectedPhoto = String(reader.result || "");
@@ -2820,9 +2849,12 @@
         await publishShelter(draftShelter);
       } catch (error) {
         console.error(error);
-        formStatus.textContent = error && error.code === "23505"
-          ? "That shelter and location are already listed."
-          : "The shared database could not publish this shelter. Please try again.";
+        formStatus.textContent =
+          error && error.status === 409
+            ? "That shelter and location are already listed."
+            : error && error.status === 429
+              ? "Too many submissions from this network. Please try again later."
+              : "The shelter could not be published. Please check the form and try again.";
         return;
       }
 
