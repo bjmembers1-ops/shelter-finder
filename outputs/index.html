@@ -871,6 +871,31 @@
       white-space: nowrap;
     }
 
+    .verification-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #edf8ee;
+      color: #28663a;
+      border: 1px solid #b8dfc0;
+      font-size: 0.76rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .verification-note {
+      margin: 10px 0 14px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: rgba(238, 250, 246, 0.86);
+      border: 1px solid #cce9df;
+      color: #36554c;
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
     .language-control select {
       width: auto;
       min-width: 148px;
@@ -1274,7 +1299,7 @@
       <p class="subhead" data-i18n="subhead">Register shelters, browse animal types, check the map, and contact the right place without turning the list into a contest.</p>
       <div class="mode-picker" aria-label="Choose what you want to do">
         <button class="mode-button" id="register-mode" type="button" data-mode-target="register" aria-pressed="false">
-          <strong data-i18n="registerModeButton">Register a shelter</strong>
+          <strong data-i18n="registerModeButton">Add your shelter</strong>
           <span data-i18n="registerModeHint">Add shelter contact info, animals, photos, and optional scores.</span>
         </button>
         <button class="mode-button" id="adopt-mode" type="button" data-mode-target="adopt" aria-pressed="true">
@@ -1286,7 +1311,7 @@
 
     <main>
       <section class="panel form-panel" aria-labelledby="form-title">
-        <h2 class="panel-title" id="form-title" data-i18n="formTitle">Add a shelter</h2>
+        <h2 class="panel-title" id="form-title" data-i18n="formTitle">Add your shelter</h2>
         <form id="shelter-form">
           <div class="form-step">
             <h3 class="step-title" data-i18n="stepContact">1. Shelter basics</h3>
@@ -1452,6 +1477,11 @@
             <strong><span id="live-score">Not scored</span></strong>
           </div>
 
+          <p class="verification-note">
+            Submissions are automatically checked for complete contact details and valid formats, then published immediately.
+            “Auto-approved” means the form passed these checks; it is not a government or legal certification of the shelter.
+          </p>
+
           <p class="form-status" id="form-status" aria-live="polite"></p>
 
           <div class="actions">
@@ -1589,11 +1619,11 @@
         title: "Shelter Finder",
         languageLabel: "Language",
         subhead: "Register shelters, browse animal types, check the map, and contact the right place without turning the list into a contest.",
-        registerModeButton: "Register a shelter",
-        registerModeHint: "Add shelter contact info, animals, photos, and optional scores.",
+        registerModeButton: "Add your shelter",
+        registerModeHint: "Shelters can submit their own contact info, animals, photos, and optional scores.",
         adoptModeButton: "Browse shelters",
         adoptModeHint: "Find dog shelters and other animal shelters, map them, and contact them.",
-        formTitle: "Register a shelter",
+        formTitle: "Add your shelter",
         stepContact: "1. Shelter basics",
         requiredNote: "Required fields are marked",
         requiredBadge: "Required",
@@ -1642,7 +1672,7 @@
         zoomMapButton: "Zoom in",
         saveButton: "Save",
         savedButton: "Saved",
-        addedMessage: "Shelter registered. The browse list has officially gained a new roommate.",
+        addedMessage: "Shelter automatically checked, approved, and published.",
         optionalScoreTitle: "Scoring",
         optionalBadge: "Optional",
         optionalScoreHelp: "Leave these blank if you do not know yet. No guessing games; unscored listings show as not scored.",
@@ -2184,404 +2214,14 @@
       }
     }
 
-    let shelters = [
-      {
-        id: "real-aspca-nyc",
-        name: "ASPCA Adoption Center",
-        contactName: "Adoptions team",
-        email: "",
-        website: "https://www.aspca.org/nyc/aspca-adoption-center-nyc",
-        phone: "+1 212 876 7700 ext. 4120",
-        location: "424 E. 92nd St., New York, NY 10128, USA",
-        mapDot: { lat: 40.7808, lng: -73.9467 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-best-friends-kanab",
-        name: "Best Friends Animal Sanctuary",
-        contactName: "Sanctuary team",
-        email: "",
-        website: "https://bestfriends.org/sanctuary",
-        phone: "+1 435 688 2327",
-        location: "5001 Angel Canyon Rd, Kanab, UT 84741, USA",
-        mapDot: { lat: 37.1322, lng: -112.5459 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
-      },
-      {
-        id: "real-battersea-london",
-        name: "Battersea Dogs & Cats Home",
-        contactName: "Rehoming team",
-        email: "info@battersea.org.uk",
-        website: "https://www.battersea.org.uk/about-us/contact-us",
-        phone: "+44 800 001 4444",
-        location: "4 Battersea Park Road, London SW8 4AA, UK",
-        mapDot: { lat: 51.4785, lng: -0.1479 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-toronto-humane",
-        name: "Toronto Humane Society",
-        contactName: "Adoptions team",
-        email: "adoption@torontohumanesociety.com",
-        website: "https://www.torontohumanesociety.com/about-us/contact-us/",
-        phone: "+1 416 392 2273",
-        location: "11 River Street, Toronto, Ontario M5A 4C2, Canada",
-        mapDot: { lat: 43.6575, lng: -79.3563 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
-      },
-      {
-        id: "real-paws-chicago",
-        name: "PAWS Chicago Adoption Center",
-        contactName: "Adoption center",
-        email: "",
-        website: "https://www.pawschicago.org/contact-us",
-        phone: "+1 773 935 7297",
-        location: "1997 N. Clybourn Ave., Chicago, IL 60614, USA",
-        mapDot: { lat: 41.9177, lng: -87.6554 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-paws-lynnwood",
-        name: "PAWS Companion Animal Shelter",
-        contactName: "Adoptions team",
-        email: "",
-        website: "https://www.paws.org/adopt/our-shelters/",
-        phone: "+1 425 787 2500",
-        location: "15305 44th Ave W, Lynnwood, WA 98087, USA",
-        mapDot: { lat: 47.8589, lng: -122.2921 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-austin-pets-alive",
-        name: "Austin Pets Alive!",
-        contactName: "Adoptions team",
-        email: "",
-        website: "https://www.austinpetsalive.org/about",
-        phone: "+1 512 961 6519",
-        location: "1156 W. Cesar Chavez St., Austin, TX 78703, USA",
-        mapDot: { lat: 30.2698, lng: -97.7584 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-austin-animal-center",
-        name: "Austin Animal Center",
-        contactName: "Adoption center",
-        email: "",
-        website: "https://www.austintexas.gov/services/adopt-pet",
-        phone: "+1 311",
-        location: "7201 Levander Loop, Austin, TX 78702, USA",
-        mapDot: { lat: 30.2539, lng: -97.6907 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
-      },
-      {
-        id: "real-austin-humane-society",
-        name: "Austin Humane Society",
-        contactName: "Adoption team",
-        email: "adoption@austinhumanesociety.org",
-        website: "https://austinhumanesociety.org/contact/",
-        phone: "+1 512 646 7387",
-        location: "124 W. Anderson Lane, Austin, TX 78752, USA",
-        mapDot: { lat: 30.3434, lng: -97.7057 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-san-diego-humane",
-        name: "San Diego Humane Society",
-        contactName: "Adoptions team",
-        email: "info@sdhumane.org",
-        website: "https://resources.sdhumane.org/sops/Guest_Relations/Contact_Information",
-        phone: "+1 619 299 7012",
-        location: "5500 Gaines St., San Diego, CA 92110, USA",
-        mapDot: { lat: 32.7659, lng: -117.1955 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
-      },
-      {
-        id: "real-dogs-trust-basildon",
-        name: "Dogs Trust Basildon",
-        contactName: "Rehoming centre",
-        email: "info@dogstrust.org.uk",
-        website: "https://www.dogstrust.org.uk/rehoming/our-centres/essex",
-        phone: "+44 303 003 0000",
-        location: "Nevendon Road, Wickford, Essex SS12 0FH, UK",
-        mapDot: { lat: 51.5951, lng: 0.5296 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs"]
-      },
-      {
-        id: "real-seoul-mapo",
-        name: "Seoul Animal Welfare Support Center Mapo",
-        contactName: "Mapo center",
-        email: "",
-        website: "https://news.seoul.go.kr/env/navigation",
-        phone: "+82 2 2124 2839",
-        location: "31 Maebongsan-ro, Mapo-gu, Seoul, South Korea",
-        mapDot: { lat: 37.5762, lng: 126.8891 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-seoul-guro",
-        name: "Seoul Animal Welfare Support Center Guro",
-        contactName: "Guro center",
-        email: "",
-        website: "https://news.seoul.go.kr/env/navigation",
-        phone: "+82 2 2636 7650",
-        location: "472 Gyeongin-ro, Guro-gu, Seoul, South Korea",
-        mapDot: { lat: 37.4965, lng: 126.8707 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["cats"]
-      },
-      {
-        id: "real-seoul-dongdaemun",
-        name: "Seoul Animal Welfare Support Center Dongdaemun",
-        contactName: "Dongdaemun center",
-        email: "",
-        website: "https://news.seoul.go.kr/env/navigation",
-        phone: "+82 2 921 2415",
-        location: "201 Muhak-ro, Dongdaemun-gu, Seoul, South Korea",
-        mapDot: { lat: 37.5865, lng: 127.0318 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-spca-hk-kowloon",
-        name: "SPCA Hong Kong Kowloon Centre",
-        contactName: "Kowloon centre",
-        email: "klnreception@spca.org.hk",
-        website: "https://www.spca.org.hk/contact/spca-centres/kowloon-centre/",
-        phone: "+852 2713 9104",
-        location: "105 Princess Margaret Road, Kowloon, Hong Kong",
-        mapDot: { lat: 22.3169, lng: 114.1819 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-jaws-tokyo",
-        name: "Japan Animal Welfare Society",
-        contactName: "Animal welfare office",
-        email: "",
-        website: "https://www.jaws.or.jp/about01/about04/",
-        phone: "+81 3 6455 7733",
-        location: "5-21-15 Higashigotanda, Shinagawa-ku, Tokyo 141-0022, Japan",
-        mapDot: { lat: 35.6279, lng: 139.7241 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-spca-singapore",
-        name: "SPCA Singapore",
-        contactName: "Adoptions team",
-        email: "enquiries@spca.org.sg",
-        website: "https://spca.org.sg/contact-us/",
-        phone: "+65 6287 5355",
-        location: "50 Sungei Tengah Road, Singapore 699012",
-        mapDot: { lat: 1.3865, lng: 103.7171 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats", "rabbits", "birds", "other"]
-      },
-      {
-        id: "real-kara-thebom-paju",
-        name: "KARA The Bom Center",
-        contactName: "The Bom Center",
-        email: "info@ekara.org",
-        website: "https://www.ekara.org/thebom/vision",
-        phone: "+82 31 959 8600",
-        location: "1409 Surihol-ro, Beobwon-eup, Paju-si, Gyeonggi-do, South Korea",
-        mapDot: { lat: 37.8498, lng: 126.8835 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-care-korea",
-        name: "CARE Korea",
-        contactName: "Animal rights group",
-        email: "care@animalrights.or.kr",
-        website: "https://careanimalrights.or.kr/",
-        phone: "+82 2 313 8886",
-        location: "31 Yangpyeong-ro 22-gil, Yeongdeungpo-gu, Seoul, South Korea",
-        mapDot: { lat: 37.5372, lng: 126.8955 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-ark-osaka",
-        name: "Animal Refuge Kansai Osaka ARK",
-        contactName: "Osaka ARK",
-        email: "ark@arkbark.jp",
-        website: "https://arkbark.net/en/aboutus/ark-osaka/",
-        phone: "+81 72 737 0712",
-        location: "595 Noma Ohara, Nose-cho, Toyono-gun, Osaka-fu 563-0131, Japan",
-        mapDot: { lat: 34.9474, lng: 135.4498 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-taiwan-spca-taipei",
-        name: "Taiwan SPCA Taipei",
-        contactName: "Adoptions team",
-        email: "adoptions@spca.org.tw",
-        website: "https://www.spca.org.tw/post/adoptanimal_en",
-        phone: "+886 2 2738 2130",
-        location: "Taipei, Taiwan",
-        mapDot: { lat: 25.0330, lng: 121.5654 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-lap-hk-dog-centre",
-        name: "LAP Hong Kong Dog Adoption Centre",
-        contactName: "Dog adoption centre",
-        email: "info@lap.org.hk",
-        website: "https://www.lap.org.hk/default.aspx",
-        phone: "+852 6543 3643",
-        location: "Shop 1B, 187 Tsuen King Circuit, Tsuen Wan, Hong Kong",
-        mapDot: { lat: 22.3761, lng: 114.1094 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs"]
-      },
-      {
-        id: "real-lap-hk-cat-centre",
-        name: "LAP Hong Kong Cat Adoption Centre",
-        contactName: "Cat adoption centre",
-        email: "info@lap.org.hk",
-        website: "https://www.lap.org.hk/default.aspx",
-        phone: "+852 6691 7131",
-        location: "11 First Street, Sai Ying Pun, Hong Kong",
-        mapDot: { lat: 22.2867, lng: 114.1408 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["cats"]
-      },
-      {
-        id: "real-gumi-adoption-center",
-        name: "Gumi Companion Animal Adoption Center",
-        contactName: "Gumi center",
-        email: "",
-        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
-        phone: "+82 54 716 0211",
-        location: "43-4 Indong 22-gil, Gumi-si, Gyeongsangbuk-do, South Korea",
-        mapDot: { lat: 36.1074, lng: 128.4156 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-cheongju-animal-care",
-        name: "Cheongju Companion Animal Protection Center",
-        contactName: "Cheongju center",
-        email: "",
-        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
-        phone: "+82 43 201 2298",
-        location: "411-55 Seobu-ro, Gangnae-myeon, Heungdeok-gu, Cheongju-si, South Korea",
-        mapDot: { lat: 36.6278, lng: 127.3636 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "dogs",
-        animalTypes: ["dogs", "cats"]
-      },
-      {
-        id: "real-miryang-animal-center",
-        name: "Miryang Animal Protection Center",
-        contactName: "Miryang center",
-        email: "",
-        website: "https://www.animal.go.kr/front/awtis/institution/institutionList.do?menuNo=1000000059",
-        phone: "+82 70 4113 7288",
-        location: "472 Cheontae-ro, Samnangjin-eup, Miryang-si, Gyeongsangnam-do, South Korea",
-        mapDot: { lat: 35.4156, lng: 128.8168 },
-        photo: "",
-        builtIn: true,
-        scored: false,
-        mainType: "cats",
-        animalTypes: ["dogs", "cats"]
-      }
-    ];
-
-    shelters = [...shelters, ...readStoredArray(storageKeys.registered)];
+    // No demo/example shelters are seeded. The directory starts empty and only
+    // contains shelters submitted through this site.
+    let shelters = readStoredArray(storageKeys.registered)
+      .filter((shelter) => shelter && !shelter.builtIn);
     let savedShelterIds = new Set(readStoredArray(storageKeys.saved));
 
     function persistRegisteredShelters() {
-      writeStoredArray(storageKeys.registered, shelters.filter((shelter) => !shelter.builtIn));
+      writeStoredArray(storageKeys.registered, shelters);
     }
 
     function persistSavedShelters() {
@@ -2829,6 +2469,31 @@
       });
     }
 
+    function automaticVerificationCheck(data) {
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email);
+      const phoneDigits = data.phone.replace(/\D/g, "");
+      const phoneOk = phoneDigits.length >= 7;
+      const nameOk = data.name.length >= 2;
+      const contactOk = data.contactName.length >= 2;
+      const locationOk = data.location.length >= 4;
+      const typeOk = animalTypeValues.includes(data.mainType);
+
+      let websiteOk = true;
+      if (data.website) {
+        try {
+          const parsed = new URL(data.website);
+          websiteOk = parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch (error) {
+          websiteOk = false;
+        }
+      }
+
+      return {
+        approved: emailOk && phoneOk && nameOk && contactOk && locationOk && typeOk && websiteOk,
+        checks: { emailOk, phoneOk, nameOk, contactOk, locationOk, typeOk, websiteOk }
+      };
+    }
+
     function createBrowseCard(shelter) {
       const text = currentText();
       const card = document.createElement("article");
@@ -2870,6 +2535,14 @@
         tag.textContent = animalTypeLabel(type, text);
         tags.appendChild(tag);
       });
+
+      if (shelter.verificationStatus === "auto-approved") {
+        const verified = document.createElement("span");
+        verified.className = "verification-badge";
+        verified.textContent = "✓ Auto-approved";
+        verified.title = "Passed automatic contact and format checks; not a government certification.";
+        tags.appendChild(verified);
+      }
 
       const actions = card.querySelector(".browse-actions");
       const links = [
@@ -2988,24 +2661,62 @@
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
       const name = form.elements.name.value.trim();
-      if (!name) return;
+      const contactName = form.elements.contactName.value.trim();
+      const email = form.elements.email.value.trim();
+      const website = form.elements.website.value.trim();
+      const phone = form.elements.phone.value.trim();
+      const location = form.elements.location.value.trim();
       const mainType = form.elements.mainType.value;
       const selectedTypes = Array.from(new Set([...getSelectedAnimalTypes(), mainType].filter(Boolean)));
       const scoreProvided = scoreFields.some((field) => form.elements[field].value.trim() !== "");
 
+      const verification = automaticVerificationCheck({
+        name,
+        contactName,
+        email,
+        website,
+        phone,
+        location,
+        mainType
+      });
+
+      if (!verification.approved) {
+        formStatus.textContent = "Automatic check failed. Please review the shelter name, contact name, email, phone number, location, website URL, and main animal type.";
+        return;
+      }
+
+      const duplicate = shelters.some((shelter) =>
+        shelter.name.trim().toLowerCase() === name.toLowerCase() &&
+        shelter.location.trim().toLowerCase() === location.toLowerCase()
+      );
+
+      if (duplicate) {
+        formStatus.textContent = "That shelter and location are already listed.";
+        return;
+      }
+
       shelters.push({
         id: createId(),
         name,
-        contactName: form.elements.contactName.value.trim(),
-        email: form.elements.email.value.trim(),
-        website: form.elements.website.value.trim(),
-        phone: form.elements.phone.value.trim(),
-        location: form.elements.location.value.trim(),
+        contactName,
+        email,
+        website,
+        phone,
+        location,
         photo: selectedPhoto,
         scored: scoreProvided,
         mainType,
-        animalTypes: selectedTypes.length ? selectedTypes : ["other"],
+        animalTypes: selectedTypes.length ? selectedTypes : [mainType],
+        verificationStatus: "auto-approved",
+        verificationMethod: "required-fields-and-contact-format",
+        verifiedAt: new Date().toISOString(),
         ...getFormScores()
       });
 
@@ -3021,8 +2732,9 @@
       form.elements.name.focus();
       updateLiveScore();
       render();
-      formStatus.textContent = currentText().addedMessage;
+      formStatus.textContent = "Shelter automatically checked, approved, and published.";
     });
+
     initShelterMap();
     updateLiveScore();
     applyTranslations();
