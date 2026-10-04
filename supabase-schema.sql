@@ -120,3 +120,9 @@ grant insert (
 ) on public.shelters to anon;
 
 -- No anonymous update/delete grants are issued.
+
+
+-- The trigger function should not be directly callable through the public API.
+revoke execute on function public.auto_verify_shelter() from public;
+revoke execute on function public.auto_verify_shelter() from anon;
+revoke execute on function public.auto_verify_shelter() from authenticated;
