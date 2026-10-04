@@ -1563,6 +1563,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
   <script>
     const gelInteraction = document.querySelector("#gel-interaction");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -2196,6 +2198,99 @@
       saved: "shelter-priority-saved-v1"
     };
 
+    const backendConfig = window.SHELTER_SUPABASE || null;
+    const hasSharedBackend = Boolean(
+      backendConfig &&
+      backendConfig.url &&
+      backendConfig.anonKey &&
+      window.supabase
+    );
+    const sharedDb = hasSharedBackend
+      ? window.supabase.createClient(backendConfig.url, backendConfig.anonKey)
+      : null;
+
+    function fromDbShelter(row) {
+      return {
+        id: row.id,
+        name: row.name,
+        contactName: row.contact_name || "",
+        email: row.email || "",
+        website: row.website || "",
+        phone: row.phone || "",
+        location: row.location || "",
+        photo: row.photo || "",
+        scored: Boolean(row.scored),
+        mainType: row.main_type || "other",
+        animalTypes: Array.isArray(row.animal_types) ? row.animal_types : ["other"],
+        animals: row.animals,
+        workers: row.workers,
+        food: row.food,
+        space: row.space,
+        verificationStatus: row.verification_status || "",
+        verificationMethod: row.verification_method || "",
+        verifiedAt: row.verified_at || "",
+        mapDot: row.latitude != null && row.longitude != null
+          ? { lat: Number(row.latitude), lng: Number(row.longitude) }
+          : null
+      };
+    }
+
+    function toDbShelter(shelter) {
+      return {
+        name: shelter.name,
+        contact_name: shelter.contactName,
+        email: shelter.email,
+        website: shelter.website || null,
+        phone: shelter.phone,
+        location: shelter.location,
+        photo: shelter.photo || null,
+        scored: Boolean(shelter.scored),
+        main_type: shelter.mainType,
+        animal_types: shelter.animalTypes,
+        animals: shelter.animals,
+        workers: shelter.workers,
+        food: shelter.food,
+        space: shelter.space,
+        latitude: shelter.mapDot ? shelter.mapDot.lat : null,
+        longitude: shelter.mapDot ? shelter.mapDot.lng : null
+      };
+    }
+
+    async function loadSheltersFromBackend() {
+      if (!sharedDb) {
+        return readStoredArray(storageKeys.registered)
+          .filter((shelter) => shelter && !shelter.builtIn);
+      }
+
+      const { data, error } = await sharedDb
+        .from("shelters")
+        .select("*")
+        .eq("published", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(fromDbShelter);
+    }
+
+    async function publishShelter(shelter) {
+      if (!sharedDb) {
+        shelters.push(shelter);
+        persistRegisteredShelters();
+        return shelter;
+      }
+
+      const { data, error } = await sharedDb
+        .from("shelters")
+        .insert(toDbShelter(shelter))
+        .select("*")
+        .single();
+
+      if (error) throw error;
+      const published = fromDbShelter(data);
+      shelters.unshift(published);
+      return published;
+    }
+
     function readStoredArray(key) {
       try {
         const value = localStorage.getItem(key);
@@ -2214,14 +2309,15 @@
       }
     }
 
-    // No demo/example shelters are seeded. The directory starts empty and only
-    // contains shelters submitted through this site.
-    let shelters = readStoredArray(storageKeys.registered)
-      .filter((shelter) => shelter && !shelter.builtIn);
+    // No demo/example shelters are seeded. Data is loaded from the shared
+    // database when configured, otherwise localStorage is used for development.
+    let shelters = [];
     let savedShelterIds = new Set(readStoredArray(storageKeys.saved));
 
     function persistRegisteredShelters() {
-      writeStoredArray(storageKeys.registered, shelters);
+      if (!sharedDb) {
+        writeStoredArray(storageKeys.registered, shelters);
+      }
     }
 
     function persistSavedShelters() {
@@ -2659,7 +2755,7 @@
       reader.readAsDataURL(file);
     });
 
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       if (!form.checkValidity()) {
@@ -2702,7 +2798,7 @@
         return;
       }
 
-      shelters.push({
+      const draftShelter = {
         id: createId(),
         name,
         contactName,
@@ -2718,9 +2814,17 @@
         verificationMethod: "required-fields-and-contact-format",
         verifiedAt: new Date().toISOString(),
         ...getFormScores()
-      });
+      };
 
-      persistRegisteredShelters();
+      try {
+        await publishShelter(draftShelter);
+      } catch (error) {
+        console.error(error);
+        formStatus.textContent = error && error.code === "23505"
+          ? "That shelter and location are already listed."
+          : "The shared database could not publish this shelter. Please try again.";
+        return;
+      }
 
       form.reset();
       scoreFields.forEach((field) => {
@@ -2735,10 +2839,27 @@
       formStatus.textContent = "Shelter automatically checked, approved, and published.";
     });
 
-    initShelterMap();
-    updateLiveScore();
-    applyTranslations();
-    setMode("adopt");
+    async function bootstrap() {
+      initShelterMap();
+      updateLiveScore();
+      applyTranslations();
+      setMode("adopt");
+
+      try {
+        shelters = await loadSheltersFromBackend();
+        render();
+        if (sharedDb) {
+          mapStatus.textContent = "Shared shelter directory connected.";
+        }
+      } catch (error) {
+        console.error(error);
+        shelters = [];
+        render();
+        mapStatus.textContent = "Could not load the shared shelter directory.";
+      }
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>
