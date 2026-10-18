@@ -127,6 +127,120 @@ revoke execute on function public.auto_verify_shelter() from public;
 revoke execute on function public.auto_verify_shelter() from anon;
 revoke execute on function public.auto_verify_shelter() from authenticated;
 
+-- Shared review system and authenticated backroom.
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  shelter_id uuid not null references public.shelters(id) on delete cascade,
+  reviewer_name text not null check (char_length(reviewer_name) between 2 and 40),
+  rating smallint not null check (rating between 1 and 5),
+  comment text not null check (char_length(comment) between 2 and 500),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists reviews_shelter_created_idx
+  on public.reviews (shelter_id, created_at desc);
+
+create table if not exists public.review_attempts (
+  id bigint generated always as identity primary key,
+  ip_hash text not null check (length(ip_hash) = 64),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists review_attempts_ip_time_idx
+  on public.review_attempts (ip_hash, created_at desc);
+
+alter table public.admin_users enable row level security;
+alter table public.reviews enable row level security;
+alter table public.review_attempts enable row level security;
+
+drop policy if exists "Admins can read their membership" on public.admin_users;
+create policy "Admins can read their membership"
+on public.admin_users for select to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "Public can read published shelter reviews" on public.reviews;
+create policy "Public can read published shelter reviews"
+on public.reviews for select to anon
+using (exists (
+  select 1 from public.shelters
+  where shelters.id = reviews.shelter_id and shelters.published = true
+));
+
+drop policy if exists "Admins can read all shelters" on public.shelters;
+create policy "Admins can read all shelters"
+on public.shelters for select to authenticated
+using (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+));
+
+drop policy if exists "Admins can update shelters" on public.shelters;
+create policy "Admins can update shelters"
+on public.shelters for update to authenticated
+using (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+))
+with check (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+));
+
+drop policy if exists "Admins can delete shelters" on public.shelters;
+create policy "Admins can delete shelters"
+on public.shelters for delete to authenticated
+using (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+));
+
+drop policy if exists "Admins can read all reviews" on public.reviews;
+create policy "Admins can read all reviews"
+on public.reviews for select to authenticated
+using (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+));
+
+drop policy if exists "Admins can delete reviews" on public.reviews;
+create policy "Admins can delete reviews"
+on public.reviews for delete to authenticated
+using (exists (
+  select 1 from public.admin_users
+  where admin_users.user_id = (select auth.uid())
+));
+
+grant usage on schema public to authenticated;
+grant select on public.admin_users to authenticated;
+grant select, update, delete on public.shelters to authenticated;
+grant select, delete on public.reviews to authenticated;
+grant select on public.reviews to anon;
+
+revoke insert, update, delete on public.reviews from anon;
+revoke insert, update on public.reviews from authenticated;
+revoke all on public.review_attempts from public, anon, authenticated;
+
+drop policy if exists "No public reads review attempts" on public.review_attempts;
+create policy "No public reads review attempts"
+on public.review_attempts for select to public using (false);
+
+drop policy if exists "No public inserts review attempts" on public.review_attempts;
+create policy "No public inserts review attempts"
+on public.review_attempts for insert to public with check (false);
+
+drop policy if exists "No public updates review attempts" on public.review_attempts;
+create policy "No public updates review attempts"
+on public.review_attempts for update to public using (false) with check (false);
+
+drop policy if exists "No public deletes review attempts" on public.review_attempts;
+create policy "No public deletes review attempts"
+on public.review_attempts for delete to public using (false);
+
 
 -- Security hardening: public clients cannot write shelter rows directly.
 drop policy if exists "Public can submit shelters" on public.shelters;

@@ -250,6 +250,18 @@
       font-size: 0.86rem;
     }
 
+    .admin-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 10px;
+      border-left: 1px solid var(--line);
+      color: var(--accent-dark);
+      font-size: 0.82rem;
+      font-weight: 850;
+      text-decoration: none;
+    }
+
     h1 {
       margin: 0;
       font-size: clamp(2.25rem, 4.6vw, 5rem);
@@ -836,6 +848,79 @@
       border-color: #f0d7ce;
     }
 
+    .review-panel {
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .review-panel summary {
+      cursor: pointer;
+      color: var(--accent-dark);
+      font-size: 0.84rem;
+      font-weight: 900;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .review-item {
+      padding: 9px 0;
+      border-bottom: 1px solid #f0e6e1;
+    }
+
+    .review-item:last-child { border-bottom: 0; }
+    .review-item strong { font-size: 0.82rem; }
+    .review-item span { color: #9a6323; }
+    .review-item p { margin: 4px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+    .review-empty { margin: 12px 0; color: var(--muted); font-size: 0.8rem; }
+
+    .review-form {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      gap: 8px;
+    }
+
+    .review-form textarea,
+    .review-form input,
+    .review-form select {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid #d9cbc5;
+      border-radius: 7px;
+      background: #fff;
+      font: inherit;
+    }
+
+    .review-form textarea {
+      grid-column: 1 / -1;
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .review-form button {
+      justify-self: start;
+      min-height: 34px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 900;
+    }
+
+    .review-status {
+      grid-column: 1 / -1;
+      min-height: 18px;
+      margin: 0;
+      color: var(--warning);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+
     .browse-empty {
       padding: 18px;
       border: 1px dashed #e9c9bf;
@@ -1295,6 +1380,7 @@
             <option value="fr">Français</option>
             <option value="it">Italiano</option>
           </select>
+          <a class="admin-link" href="./admin.html">Admin</a>
         </div>
       </div>
       <p class="subhead" data-i18n="subhead">Register shelters, browse animal types, check the map, and contact the right place without turning the list into a contest.</p>
@@ -2301,6 +2387,45 @@
       return published;
     }
 
+    function fromDbReview(row) {
+      return {
+        id: row.id,
+        shelterId: row.shelter_id,
+        name: row.reviewer_name,
+        rating: Number(row.rating),
+        comment: row.comment,
+        createdAt: row.created_at
+      };
+    }
+
+    async function loadReviewsFromBackend() {
+      if (!sharedDb) return [];
+      const { data, error } = await sharedDb
+        .from("reviews")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []).map(fromDbReview);
+    }
+
+    async function publishReview(review) {
+      if (!sharedDb) throw new Error("Shared reviews are unavailable in this preview.");
+      const response = await fetch(backendConfig.url + "/functions/v1/submit-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(review)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(payload.error || "Review could not be saved.");
+        error.status = response.status;
+        throw error;
+      }
+      const saved = fromDbReview(payload.review);
+      reviews.unshift(saved);
+      return saved;
+    }
+
     function readStoredArray(key) {
       try {
         const value = localStorage.getItem(key);
@@ -2322,6 +2447,7 @@
     // No demo/example shelters are seeded. Data is loaded from the shared
     // database when configured, otherwise localStorage is used for development.
     let shelters = [];
+    let reviews = [];
     let savedShelterIds = new Set(readStoredArray(storageKeys.saved));
 
     function persistRegisteredShelters() {
@@ -2622,6 +2748,23 @@
         </div>
         <div class="type-tags"></div>
         <div class="browse-actions"></div>
+        <details class="review-panel">
+          <summary></summary>
+          <div class="review-list"></div>
+          <form class="review-form">
+            <input name="name" maxlength="40" minlength="2" placeholder="Your name" aria-label="Your name" required>
+            <select name="rating" aria-label="Rating" required>
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Good</option>
+              <option value="3">3 - Okay</option>
+              <option value="2">2 - Needs work</option>
+              <option value="1">1 - Poor</option>
+            </select>
+            <textarea name="comment" maxlength="500" minlength="2" placeholder="Share a clear, useful review" aria-label="Review" required></textarea>
+            <button type="submit">Post review</button>
+            <p class="review-status" aria-live="polite"></p>
+          </form>
+        </details>
       `;
 
       card.querySelector(".browse-name").textContent = shelter.name;
@@ -2684,6 +2827,34 @@
       saveButton.textContent = savedShelterIds.has(shelter.id) ? text.savedButton : text.saveButton;
       actions.appendChild(saveButton);
 
+      const shelterReviews = reviews.filter((review) => review.shelterId === shelter.id);
+      const average = shelterReviews.length
+        ? shelterReviews.reduce((total, review) => total + review.rating, 0) / shelterReviews.length
+        : 0;
+      card.querySelector(".review-panel summary").textContent = shelterReviews.length
+        ? `${average.toFixed(1)}/5 from ${shelterReviews.length} ${shelterReviews.length === 1 ? "review" : "reviews"}`
+        : "Reviews - be the first";
+
+      const reviewList = card.querySelector(".review-list");
+      if (!shelterReviews.length) {
+        reviewList.innerHTML = '<p class="review-empty">No reviews yet. Useful details beat mysterious star-dropping.</p>';
+      } else {
+        shelterReviews.slice(0, 3).forEach((review) => {
+          const item = document.createElement("article");
+          item.className = "review-item";
+          const heading = document.createElement("strong");
+          heading.textContent = review.name;
+          const stars = document.createElement("span");
+          stars.textContent = ` ${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}`;
+          const comment = document.createElement("p");
+          comment.textContent = review.comment;
+          item.append(heading, stars, comment);
+          reviewList.appendChild(item);
+        });
+      }
+
+      card.querySelector(".review-form").dataset.shelterId = shelter.id;
+
       return card;
     }
 
@@ -2720,6 +2891,31 @@
     animalFilter.addEventListener("change", render);
 
     browseSearch.addEventListener("input", render);
+
+    browseList.addEventListener("submit", async (event) => {
+      const reviewForm = event.target.closest(".review-form");
+      if (!reviewForm) return;
+      event.preventDefault();
+      const status = reviewForm.querySelector(".review-status");
+      status.textContent = "Posting review...";
+      const submitButton = reviewForm.querySelector("button[type='submit']");
+      submitButton.disabled = true;
+      try {
+        await publishReview({
+          shelterId: reviewForm.dataset.shelterId,
+          name: reviewForm.elements.name.value.trim(),
+          rating: Number(reviewForm.elements.rating.value),
+          comment: reviewForm.elements.comment.value.trim()
+        });
+        reviewForm.reset();
+        render();
+      } catch (error) {
+        status.textContent = error.status === 429
+          ? "Too many reviews from this network. Please try again later."
+          : error.message || "Review could not be saved.";
+        submitButton.disabled = false;
+      }
+    });
 
     browseList.addEventListener("click", (event) => {
       const zoomButton = event.target.closest("[data-zoom-map-id]");
@@ -2878,7 +3074,10 @@
       setMode("adopt");
 
       try {
-        shelters = await loadSheltersFromBackend();
+        [shelters, reviews] = await Promise.all([
+          loadSheltersFromBackend(),
+          loadReviewsFromBackend()
+        ]);
         render();
         if (sharedDb) {
           mapStatus.textContent = "Shared shelter directory connected.";
