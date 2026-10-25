@@ -139,6 +139,22 @@
       animation-delay: 1.6s;
     }
 
+    body.rainbow-gel .gel-interaction {
+      background: conic-gradient(from 40deg at 50% 50%, #ff5c7a, #ffd166, #66e3a4, #5dc8ff, #b58cff, #ff5c7a);
+      mix-blend-mode: normal;
+      opacity: 0.38;
+      animation: rainbowSpin 2.4s linear infinite;
+    }
+
+    body.rainbow-gel::before,
+    body.rainbow-gel::after {
+      background: conic-gradient(#ff4f7b, #ffd166, #52d69b, #4dbaf0, #ad76ef, #ff4f7b);
+      animation: rainbowBlob 2.8s linear infinite;
+    }
+
+    @keyframes rainbowSpin { to { filter: hue-rotate(360deg) saturate(1.8); } }
+    @keyframes rainbowBlob { to { filter: blur(10px) hue-rotate(360deg) saturate(2); } }
+
     .click-ripple {
       position: absolute;
       left: calc(var(--ripple-x) * 1%);
@@ -203,6 +219,8 @@
       .gel-interaction {
         display: none;
       }
+
+      body.rainbow-gel { background: linear-gradient(135deg, #ffe3ea, #fff1b8, #c9f7df, #ccecff, #e5d7ff); }
     }
 
     button,
@@ -1655,6 +1673,16 @@
   <script>
     const gelInteraction = document.querySelector("#gel-interaction");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const easterEggTitle = document.querySelector(".title-lockup");
+    let titleClicks = 0;
+    let rainbowTimer;
+    easterEggTitle.addEventListener("click", () => {
+      if (++titleClicks < 5) return;
+      titleClicks = 0;
+      document.body.classList.add("rainbow-gel");
+      clearTimeout(rainbowTimer);
+      rainbowTimer = setTimeout(() => document.body.classList.remove("rainbow-gel"), 10000);
+    });
 
     function setPointerPosition(event) {
       const x = (event.clientX / window.innerWidth) * 100;
